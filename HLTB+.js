@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         HLTB+
 // @namespace    http://tampermonkey.net/
-// @version      2026-04-21
+// @version      0.5
 // @description  QoL improvements for HLTB
 // @author       RunePML
 // @match        https://howlongtobeat.com/*
@@ -141,6 +141,35 @@
             exportBtn.innerText = 'Export list';
             exportBtn.addEventListener('click', exportGamesList);
             buttonsContainer.appendChild(exportBtn);
+
+            const fieldsBtn = document.createElement('button');
+            fieldsBtn.id = ID_PREFIX + 'fields_btn';
+            fieldsBtn.type = 'button';
+            resetFiltersBtn.classList.forEach(cssClass => fieldsBtn.classList.add(cssClass));
+            fieldsBtn.classList.add('back_green');
+            fieldsBtn.innerText = 'v';
+            fieldsBtn.addEventListener('click', toggleExportFields);
+            buttonsContainer.appendChild(fieldsBtn);
+
+            const fields = document.createElement('div');
+            fields.id = ID_PREFIX + 'fields';
+            fields.style = 'position: absolute; z-index: 1; right: 24px; padding: 20px; display: flex; flex-direction: column; align-items: end; display: none;';
+            fields.classList.add('back_green', 'shadow_box');
+            buttonsContainer.appendChild(fields);
+
+            ['Game', 'Platform', 'Progress', 'Rating'].forEach(label => {
+                const fieldCb = document.createElement('input');
+                fieldCb.id = ID_PREFIX + 'field_' + label.toLocaleLowerCase();
+                fieldCb.name = fieldCb.id;
+                fieldCb.type = 'checkbox';
+                fieldCb.checked = true;
+
+                const fieldLabel = document.createElement('label');
+                fieldLabel.for = fieldCb.id;
+                fieldLabel.innerText = label;
+                fieldLabel.appendChild(fieldCb);
+                fields.appendChild(fieldLabel);
+            });
         }, 20);
     }
 
@@ -150,19 +179,46 @@
             viewOptions.dispatchEvent(new Event('change', { bubbles: true }));
 
             waitForElement('#user_games .in > div', gamesList => {
-                let csv = 'Game;Platform;Progress;Rating\n';
+                const fieldGame = document.querySelector('#' + ID_PREFIX + 'field_game').checked;
+                const fieldPlatform = document.querySelector('#' + ID_PREFIX + 'field_platform').checked;
+                const fieldProgress = document.querySelector('#' + ID_PREFIX + 'field_progress').checked;
+                const fieldRating = document.querySelector('#' + ID_PREFIX + 'field_rating').checked;
+
+                let csv = '';
+                if (fieldGame) {
+                    csv += 'Game;'
+                }
+                if (fieldPlatform) {
+                    csv += 'Platform;'
+                }
+                if (fieldProgress) {
+                    csv += 'Progress'
+                }
+                if (fieldRating) {
+                    csv += 'Rating;'
+                }
+                csv += '\n';
+
+
                 const rows = gamesList.querySelectorAll('.spreadsheet > div');
 
                 rows.forEach(row => {
                     const columns = row.querySelectorAll('div');
-                    const game = columns[0].querySelector('a').innerText;
-                    csv += game + ';'
-                    const platform = columns[0].querySelector('span').innerText;
-                    csv += platform + ';'
-                    const progress = columns[1].innerText;
-                    csv += progress + ';'
-                    const rating = columns[2].innerText;
-                    csv += rating + '\n'
+
+                    if (fieldGame) {
+                        csv += columns[0].querySelector('a').innerText + ';'
+                    }
+                    if (fieldPlatform) {
+                        csv += columns[0].querySelector('span').innerText + ';'
+                    }
+                    if (fieldProgress) {
+                        csv += columns[1].innerText + ';'
+                    }
+                    if (fieldRating) {
+                        csv += columns[2].innerText + ';'
+                    }
+
+                    csv += '\n';
                 });
 
                 const blob = new Blob([csv], { type: "text/csv" });
@@ -176,5 +232,17 @@
                 URL.revokeObjectURL(url);
             }, 20);
         }, 20);
+    }
+
+    function toggleExportFields() {
+        const fieldsBtn = document.querySelector('#' + ID_PREFIX + 'fields_btn');
+        const fields = document.querySelector('#' + ID_PREFIX + 'fields');
+        if (fields.style.display === 'none') {
+            fieldsBtn.innerText = '^';
+            fields.style.display = 'flex';
+        } else {
+            fields.style.display = 'none';
+            fieldsBtn.innerText = 'v';
+        }
     }
 })();
