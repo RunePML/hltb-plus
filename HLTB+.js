@@ -9,12 +9,13 @@
 // @grant        none
 // ==/UserScript==
 
-(function() {
+(function () {
     'use strict';
 
     const ID_PREFIX = 'HLTBP_';
 
     let currentPage = [];
+    let timerRunning = false;
 
     setTimeout(() => {
         console.log('HLTB+ is running');
@@ -55,10 +56,18 @@
                 onNavigate();
             }
         }, 1000);
+
+        // Guard to avoid losing progress on a running timer when reloading or closing the tab
+        window.addEventListener('beforeunload', (event) => {
+            if (timerRunning) {
+                event.preventDefault();
+                event.returnValue = '';
+            }
+        });
     }
 
     function onNavigate() {
-        switch(currentPage[0]) {
+        switch (currentPage[0]) {
             case 'submit':
                 if (currentPage[1] && currentPage[1] === 'edit') {
                     editPage();
@@ -77,8 +86,43 @@
 
     function editPage() {
         waitForElement('.in.back_secondary.shadow_box.mobile_hide', progressTimer => {
-            progressTimer.classList.remove('mobile_hide');
+            customizeProgressTimer(progressTimer);
         }, 20);
+    }
+
+    function customizeProgressTimer(progressTimer) {
+        // Custom classes
+        progressTimer.classList.remove('mobile_hide');
+
+        // Custom events
+        let timerInterval = null;
+
+        const pageTitle = document.querySelector('title');
+        const pageTitleText = pageTitle.innerText;
+
+        const progressText = progressTimer.querySelector('.form_text.back_dark.center');
+
+        const startBtn = progressTimer.querySelector('.form_button.back_red');
+        startBtn.addEventListener('click', () => {
+            if (!timerInterval) {
+                timerInterval = setInterval(() => {
+                    pageTitle.innerText = progressText.innerText + ' | ' + pageTitleText;
+                    timerRunning = true;
+                }, 500);
+                console.log('Timer running');
+            }
+        });
+
+        const onTimerStop = () => {
+            clearInterval(timerInterval);
+            pageTitle.innerText = pageTitleText;
+            timerRunning = false;
+            console.log('Timer stopped');
+        };
+        const addBtn = progressTimer.querySelector('.form_button.form_blue.primary');
+        addBtn.addEventListener('click', onTimerStop);
+        const resetBtn = progressTimer.querySelector('.form_button.form_blue.secondary');
+        resetBtn.addEventListener('click', onTimerStop);
     }
 
     function gamesPage() {
