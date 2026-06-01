@@ -7,3 +7,4 @@ A userscripts for HowLongToBeat with some QoL improvements
 - Displays progress on the page title when a timer is running.
 - Confirmation dialog to avoid losing progress on a running timer when __reloading__ or __closing__ the tab.
 - Add __field__ selector for export functionality.
+- Changes background color on when timer is running (green) or paused (red) to visually indicate status.
