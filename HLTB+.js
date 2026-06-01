@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         HLTB+
 // @namespace    http://tampermonkey.net/
-// @version      0.5
+// @version      0.6
 // @description  QoL improvements for HLTB
 // @author       RunePML
 // @match        https://howlongtobeat.com/*
@@ -16,6 +16,7 @@
 
     let currentPage = [];
     let timerRunning = false;
+    let timerPaused = false;
 
     setTimeout(() => {
         console.log('HLTB+ is running');
@@ -90,6 +91,13 @@
         }, 20);
     }
 
+    function setMainBackgroundColor(color) {
+        const pageMain = document.querySelector('main');
+        if (pageMain) {
+            pageMain.style.backgroundColor = color;
+        }
+    }
+
     function customizeProgressTimer(progressTimer) {
         // Custom classes
         progressTimer.classList.remove('mobile_hide');
@@ -105,11 +113,20 @@
         const startBtn = progressTimer.querySelector('.form_button.back_red');
         startBtn.addEventListener('click', () => {
             if (!timerInterval) {
+                timerPaused = false;
                 timerInterval = setInterval(() => {
                     pageTitle.innerText = progressText.innerText + ' | ' + pageTitleText;
                     timerRunning = true;
+
+                    if (timerPaused) {
+                        setMainBackgroundColor('rgba(203, 58, 59, 0.6)');
+                    } else {
+                        setMainBackgroundColor('rgba(61, 169, 73, 0.6)');
+                    }
                 }, 500);
                 console.log('Timer running');
+            } else {
+                timerPaused = !timerPaused;
             }
         });
 
@@ -117,6 +134,7 @@
             clearInterval(timerInterval);
             pageTitle.innerText = pageTitleText;
             timerRunning = false;
+            setMainBackgroundColor('transparent');
             console.log('Timer stopped');
         };
         const addBtn = progressTimer.querySelector('.form_button.form_blue.primary');
