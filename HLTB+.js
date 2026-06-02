@@ -13,10 +13,16 @@
     'use strict';
 
     const ID_PREFIX = 'HLTBP_';
+    const editPage = {
+        progressTimer: {
+            timerRunning: false,
+            timerPaused: false
+        },
+        currentProgress: 0
+    };
 
+    let notificationsContainer = null;
     let currentPage = [];
-    let timerRunning = false;
-    let timerPaused = false;
 
     setTimeout(() => {
         console.log('HLTB+ is running');
@@ -60,7 +66,7 @@
 
         // Guard to avoid losing progress on a running timer when reloading or closing the tab
         window.addEventListener('beforeunload', (event) => {
-            if (timerRunning) {
+            if (editPage.progressTimer.timerRunning) {
                 event.preventDefault();
                 event.returnValue = '';
             }
@@ -68,15 +74,17 @@
     }
 
     function onNavigate() {
+        setMainBackgroundColor('transparent');
+
         switch (currentPage[0]) {
             case 'submit':
                 if (currentPage[1] && currentPage[1] === 'edit') {
-                    editPage();
+                    onEditPage();
                 }
                 break;
             case 'user':
                 if (currentPage[2] && currentPage[2] === 'games') {
-                    gamesPage();
+                    onGamesPage();
                 }
                 break
             default:
@@ -85,10 +93,14 @@
         }
     }
 
-    function editPage() {
+    function onEditPage() {
         waitForElement('.in.back_secondary.shadow_box.mobile_hide', progressTimer => {
             customizeProgressTimer(progressTimer);
         }, 20);
+
+        waitForElement('#progress_jump', currentProgressElement => {
+            customizeCurrentProgress(currentProgressElement);
+        });
     }
 
     function setMainBackgroundColor(color) {
@@ -113,12 +125,12 @@
         const startBtn = progressTimer.querySelector('.form_button.back_red');
         startBtn.addEventListener('click', () => {
             if (!timerInterval) {
-                timerPaused = false;
+                editPage.progressTimer.timerPaused = false;
                 timerInterval = setInterval(() => {
                     pageTitle.innerText = progressText.innerText + ' | ' + pageTitleText;
-                    timerRunning = true;
+                    editPage.progressTimer.timerRunning = true;
 
-                    if (timerPaused) {
+                    if (editPage.progressTimer.timerPaused) {
                         setMainBackgroundColor('rgba(203, 58, 59, 0.6)');
                     } else {
                         setMainBackgroundColor('rgba(61, 169, 73, 0.6)');
@@ -126,14 +138,17 @@
                 }, 500);
                 console.log('Timer running');
             } else {
-                timerPaused = !timerPaused;
+                editPage.progressTimer.timerPaused = !editPage.progressTimer.timerPaused;
+                console.log('Timer ' + (editPage.progressTimer.timerPaused ? 'paused' : 'running'));
             }
         });
 
         const onTimerStop = () => {
             clearInterval(timerInterval);
+            timerInterval = null;
             pageTitle.innerText = pageTitleText;
-            timerRunning = false;
+            editPage.progressTimer.timerRunning = false;
+            editPage.progressTimer.timerPaused = false;
             setMainBackgroundColor('transparent');
             console.log('Timer stopped');
         };
@@ -143,7 +158,31 @@
         resetBtn.addEventListener('click', onTimerStop);
     }
 
-    function gamesPage() {
+    function getCurrentProgressInSeconds(currentProgressElement) {
+        const inputs = currentProgressElement.querySelectorAll('input');
+        const hours = inputs[0].value !== '' ? Number.parseInt(inputs[0].value) : 0;
+        const minutes = inputs[1].value !== '' ? Number.parseInt(inputs[1].value) : 0;
+        const seconds = inputs[2].value !== '' ? Number.parseInt(inputs[2].value) : 0;
+        return (hours * 3600) + (minutes * 60) + seconds;
+    }
+
+    function customizeCurrentProgress(currentProgressElement) {
+        editPage.currentProgress = getCurrentProgressInSeconds(currentProgressElement);
+        console.log('Current progress in seconds: ', editPage.currentProgress);
+
+        const saveBtn = document.querySelector('.global_padding_big.form_blue');
+        saveBtn.addEventListener('click', () => {
+            const savedProgress = getCurrentProgressInSeconds(currentProgressElement);
+            const totalSeconds = savedProgress - editPage.currentProgress;
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            const gameTitle = document.querySelector('h1').innerText;
+            showNotification('Game: ' + gameTitle + ' - Session duration: ' + hours + 'h&nbsp;' + minutes + 'm&nbsp;' + seconds + 's');
+        });
+    }
+
+    function onGamesPage() {
         waitForElement('.form_button.back_red', resetFiltersBtn => {
             if (document.querySelector('#' + ID_PREFIX + 'export_btn')) {
                 return;
@@ -262,5 +301,31 @@
             fields.style.display = 'none';
             fieldsBtn.innerText = 'v';
         }
+    }
+
+    function showNotification(notificationText) {
+        if (!notificationsContainer) {
+            notificationsContainer = document.createElement('div');
+            notificationsContainer.id = ID_PREFIX + 'notifications_container';
+            let style = 'position: fixed; z-index: 1;';
+            style += 'bottom: 0; left: 0; width: 100%;';
+            style += 'display: flex; flex-direction: column; gap: 8px;';
+            style += 'align-items: center; padding-bottom: 8px;';
+            style += 'background: linear-gradient(0deg, black, transparent)';
+            notificationsContainer.style = style;
+
+            document.body.appendChild(notificationsContainer);
+        }
+
+        const notification = document.createElement('h3');
+        notification.id = ID_PREFIX + 'notification_' + (new Date().getTime());
+        notification.classList.add('head_padding', 'back_pink', 'center');
+        let style = 'width: 80%; cursor: pointer;';
+        notification.style = style;
+        notification.innerHTML = notificationText;
+        notification.addEventListener('click', () => {
+            notification.remove();
+        });
+        notificationsContainer.appendChild(notification);
     }
 })();
