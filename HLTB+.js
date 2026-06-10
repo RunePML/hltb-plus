@@ -100,6 +100,8 @@
                 }
                 break;
             case 'user':
+                onUserPage();
+
                 if (currentPage[2] && currentPage[2] === 'games') {
                     onGamesPage();
                 } else if (currentPage[2] && currentPage[2] === 'options') {
@@ -119,6 +121,13 @@
 
         waitForElement('#progress_jump', currentProgressElement => {
             customizeCurrentProgress(currentProgressElement);
+        });
+    }
+
+    function onUserPage() {
+        waitForElement('[class^="UserNavigation-module"]', navigationElement => {
+            if (options.journalEnabled)
+                addJournalTab(navigationElement);
         });
     }
 
@@ -408,5 +417,49 @@
             showNotification('HLTB+ options saved. Reload page to apply changes.');
         });
         saveButtonContainer.appendChild(saveButton);
+    }
+
+    function addJournalTab(navigationElement) {
+        const tabId = ID_PREFIX + 'journal_tab';
+        if (navigationElement.querySelector('#' + tabId))
+            return;
+
+        const journalTab = document.createElement('li');
+        journalTab.id = tabId;
+        navigationElement.querySelector('ul').appendChild(journalTab);
+
+        const link = document.createElement('a');
+        link.innerText = 'Journal';
+        link.href = '#';
+        link.addEventListener('click', () => {
+            const activeTabContent = document.querySelector('.contain_out:last-of-type');
+            activeTabContent.style.display = 'none';
+
+            const activeClass = 'back_pink'
+            journalTab.classList.add(activeClass);
+
+            const tabs = navigationElement.querySelectorAll('li');
+            Array.from(tabs).forEach(tab => {
+                if (tab === journalTab)
+                    return;
+                tab.classList.remove(activeClass);
+                tab.addEventListener('click', () => {
+                    tab.classList.add(activeClass);
+                    activeTabContent.style.display = 'block';
+                    journalTab.classList.remove(activeClass);
+                });
+            });
+
+            addJournalTabContent(activeTabContent);
+        });
+        journalTab.appendChild(link);
+    }
+
+    function addJournalTabContent(activeTabContent) {
+        const tabContentId = ID_PREFIX + 'journal_tab_content';
+        if (document.querySelector('#' + tabContentId))
+            return;
+
+        console.log('addJournalTabContent not yet implemented');
     }
 })();
