@@ -27,6 +27,7 @@
 
     let notificationsContainer = null;
     let currentPage = [];
+    let journalTabContainer = null;
 
     setTimeout(() => {
         console.log('HLTB+ is running');
@@ -446,20 +447,93 @@
                 tab.addEventListener('click', () => {
                     tab.classList.add(activeClass);
                     activeTabContent.style.display = 'block';
+
                     journalTab.classList.remove(activeClass);
+                    if (journalTabContainer) {
+                        journalTabContainer.remove();
+                        journalTabContainer = null;
+                    }
                 });
             });
 
-            addJournalTabContent(activeTabContent);
+            addJournalTabContainer(activeTabContent.parentElement);
         });
         journalTab.appendChild(link);
     }
 
-    function addJournalTabContent(activeTabContent) {
-        const tabContentId = ID_PREFIX + 'journal_tab_content';
-        if (document.querySelector('#' + tabContentId))
+    function addJournalTabContainer(container) {
+        if (journalTabContainer)
             return;
 
-        console.log('addJournalTabContent not yet implemented');
+        journalTabContainer = document.createElement('div');
+        journalTabContainer.id = ID_PREFIX + 'journal_tab_content';
+        journalTabContainer.classList.add('contain_out');
+        container.appendChild(journalTabContainer);
+
+        const innerContainer = document.createElement('div');
+        innerContainer.classList.add('contain_in');
+        journalTabContainer.appendChild(innerContainer);
+
+        const leftColumn = document.createElement('div');
+        leftColumn.classList.add('content_25_extend', 'spaced');
+        innerContainer.appendChild(leftColumn);
+
+        const calendarPanel = document.createElement('div');
+        calendarPanel.classList.add('in', 'back_secondary', 'shadow_box');
+        leftColumn.appendChild(calendarPanel);
+
+        const rightColumn = document.createElement('div');
+        rightColumn.classList.add('content_75', 'spaced');
+        innerContainer.appendChild(rightColumn);
+
+        const journalPanel = document.createElement('div');
+        journalPanel.classList.add('in', 'back_primary', 'shadow_box');
+        rightColumn.appendChild(journalPanel);
+
+        const clear = document.createElement('div');
+        clear.classList.add('clear');
+        innerContainer.appendChild(clear);
+
+        const calendar = new Calendar(calendarPanel, new Date(), newDate => {
+            console.log(newDate);
+        });
+    }
+
+    class Calendar {
+        constructor(container, date, onDateChange) {
+            this.container = container;
+            this.date = date;
+            this.onDateChange = onDateChange;
+            this.render();
+        }
+
+        render() {
+            this.renderTitle();
+            this.renderDatePicker();
+        }
+
+        renderTitle() {
+            const title = document.createElement('h3');
+            title.classList.add('head_padding', 'back_primary', 'center');
+            title.innerText = 'Calendar';
+            this.container.appendChild(title);
+        }
+
+        renderDatePicker() {
+            const fieldset = document.createElement('fieldset');
+            fieldset.classList.add('options-module__S5himG__radios', 'spreadsheet');
+            this.container.appendChild(fieldset);
+
+            const title = document.createElement('h4');
+            title.innerText = 'Date:';
+            fieldset.appendChild(title);
+
+            const datePicker = document.createElement('input');
+            datePicker.classList.add('form_text', 'back_form');
+            datePicker.type = 'date';
+            datePicker.value = this.date.toISOString().split('T')[0];
+            datePicker.addEventListener('change', event => this.onDateChange(new Date(datePicker.value)));
+            fieldset.appendChild(datePicker);
+        }
     }
 })();
