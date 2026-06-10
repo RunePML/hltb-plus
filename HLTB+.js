@@ -21,12 +21,16 @@
         currentProgress: 0
     };
 
+    let options = {
+        journalEnabled: false,
+    };
+
     let notificationsContainer = null;
     let currentPage = [];
 
     setTimeout(() => {
         console.log('HLTB+ is running');
-
+        loadOptions();
         initNavigationObserver();
         onNavigate();
     }, 1000);
@@ -51,6 +55,19 @@
                 }
             }
         }, 100);
+    }
+
+    function loadOptions() {
+        const loadedOptions = localStorage.getItem(ID_PREFIX + 'options');
+        if (!loadedOptions)
+            return;
+
+        options = JSON.parse(loadedOptions);
+        console.log('Loaded options:', options);
+    }
+
+    function saveOptions() {
+        localStorage.setItem(ID_PREFIX + 'options', JSON.stringify(options));
     }
 
     function initNavigationObserver() {
@@ -85,6 +102,8 @@
             case 'user':
                 if (currentPage[2] && currentPage[2] === 'games') {
                     onGamesPage();
+                } else if (currentPage[2] && currentPage[2] === 'options') {
+                    onOptionsPage();
                 }
                 break
             default:
@@ -100,6 +119,61 @@
 
         waitForElement('#progress_jump', currentProgressElement => {
             customizeCurrentProgress(currentProgressElement);
+        });
+    }
+
+    function onGamesPage() {
+        waitForElement('.form_button.back_red', resetFiltersBtn => {
+            if (document.querySelector('#' + ID_PREFIX + 'export_btn')) {
+                return;
+            }
+
+            const buttonsContainer = resetFiltersBtn.parentElement;
+
+            const exportBtn = document.createElement('button');
+            exportBtn.id = ID_PREFIX + 'export_btn';
+            exportBtn.type = 'button';
+            resetFiltersBtn.classList.forEach(cssClass => exportBtn.classList.add(cssClass));
+            exportBtn.classList.add('back_green');
+            exportBtn.innerText = 'Export list';
+            exportBtn.addEventListener('click', exportGamesList);
+            buttonsContainer.appendChild(exportBtn);
+
+            const fieldsBtn = document.createElement('button');
+            fieldsBtn.id = ID_PREFIX + 'fields_btn';
+            fieldsBtn.type = 'button';
+            resetFiltersBtn.classList.forEach(cssClass => fieldsBtn.classList.add(cssClass));
+            fieldsBtn.classList.add('back_green');
+            fieldsBtn.innerText = 'v';
+            fieldsBtn.addEventListener('click', toggleExportFields);
+            buttonsContainer.appendChild(fieldsBtn);
+
+            const fields = document.createElement('div');
+            fields.id = ID_PREFIX + 'fields';
+            fields.style = 'position: absolute; z-index: 1; right: 24px; padding: 20px; display: flex; flex-direction: column; align-items: end; display: none;';
+            fields.classList.add('back_green', 'shadow_box');
+            buttonsContainer.appendChild(fields);
+
+            ['Game', 'Platform', 'Progress', 'Rating'].forEach(label => {
+                const fieldCb = document.createElement('input');
+                fieldCb.id = ID_PREFIX + 'field_' + label.toLocaleLowerCase();
+                fieldCb.name = fieldCb.id;
+                fieldCb.type = 'checkbox';
+                fieldCb.checked = true;
+
+                const fieldLabel = document.createElement('label');
+                fieldLabel.for = fieldCb.id;
+                fieldLabel.innerText = label;
+                fieldLabel.appendChild(fieldCb);
+                fields.appendChild(fieldLabel);
+            });
+        }, 20);
+    }
+
+    function onOptionsPage() {
+        waitForElement('.contain_out:last-of-type .contain_in', optionsContainer => {
+            const optionsColumns = optionsContainer.querySelectorAll('.content_33');
+            createOptionsPanel(optionsColumns[optionsColumns.length - 1]);
         });
     }
 
@@ -180,54 +254,6 @@
             const gameTitle = document.querySelector('h1').innerText;
             showNotification('Game: ' + gameTitle + ' - Session duration: ' + hours + 'h&nbsp;' + minutes + 'm&nbsp;' + seconds + 's');
         });
-    }
-
-    function onGamesPage() {
-        waitForElement('.form_button.back_red', resetFiltersBtn => {
-            if (document.querySelector('#' + ID_PREFIX + 'export_btn')) {
-                return;
-            }
-
-            const buttonsContainer = resetFiltersBtn.parentElement;
-
-            const exportBtn = document.createElement('button');
-            exportBtn.id = ID_PREFIX + 'export_btn';
-            exportBtn.type = 'button';
-            resetFiltersBtn.classList.forEach(cssClass => exportBtn.classList.add(cssClass));
-            exportBtn.classList.add('back_green');
-            exportBtn.innerText = 'Export list';
-            exportBtn.addEventListener('click', exportGamesList);
-            buttonsContainer.appendChild(exportBtn);
-
-            const fieldsBtn = document.createElement('button');
-            fieldsBtn.id = ID_PREFIX + 'fields_btn';
-            fieldsBtn.type = 'button';
-            resetFiltersBtn.classList.forEach(cssClass => fieldsBtn.classList.add(cssClass));
-            fieldsBtn.classList.add('back_green');
-            fieldsBtn.innerText = 'v';
-            fieldsBtn.addEventListener('click', toggleExportFields);
-            buttonsContainer.appendChild(fieldsBtn);
-
-            const fields = document.createElement('div');
-            fields.id = ID_PREFIX + 'fields';
-            fields.style = 'position: absolute; z-index: 1; right: 24px; padding: 20px; display: flex; flex-direction: column; align-items: end; display: none;';
-            fields.classList.add('back_green', 'shadow_box');
-            buttonsContainer.appendChild(fields);
-
-            ['Game', 'Platform', 'Progress', 'Rating'].forEach(label => {
-                const fieldCb = document.createElement('input');
-                fieldCb.id = ID_PREFIX + 'field_' + label.toLocaleLowerCase();
-                fieldCb.name = fieldCb.id;
-                fieldCb.type = 'checkbox';
-                fieldCb.checked = true;
-
-                const fieldLabel = document.createElement('label');
-                fieldLabel.for = fieldCb.id;
-                fieldLabel.innerText = label;
-                fieldLabel.appendChild(fieldCb);
-                fields.appendChild(fieldLabel);
-            });
-        }, 20);
     }
 
     function exportGamesList() {
@@ -327,5 +353,60 @@
             notification.remove();
         });
         notificationsContainer.appendChild(notification);
+    }
+
+    function createOptionsPanel(container) {
+        if (!container) {
+            console.error('createOptionsPanel(): No container provided');
+            return;
+        }
+
+        const optionsPanel = document.createElement('div');
+        optionsPanel.classList.add('in', 'back_primary', 'shadow_box');
+        container.appendChild(optionsPanel);
+
+        const title = document.createElement('h3');
+        title.classList.add('head_padding', 'back_orange', 'center');
+        title.innerText = 'HLTB+';
+        optionsPanel.appendChild(title);
+
+        const journalFieldset = document.createElement('fieldset');
+        journalFieldset.classList.add('options-module__S5himG__radios', 'spreadsheet');
+        optionsPanel.appendChild(journalFieldset);
+
+        const journalFieldsetTitle = document.createElement('h4');
+        journalFieldsetTitle.innerText = 'Journal:';
+        journalFieldsetTitle.title = 'If enabled a new tab "Journal" will be added with detailed info about your game sessions';
+        journalFieldset.appendChild(journalFieldsetTitle);
+
+        const journalFieldsetCbContainer = document.createElement('div');
+        journalFieldset.appendChild(journalFieldsetCbContainer);
+
+        const journalEnabledCb = document.createElement('input');
+        journalEnabledCb.id = ID_PREFIX + 'journal_enabled';
+        journalEnabledCb.classList.add('form_checkbox');
+        journalEnabledCb.type = 'checkbox';
+        journalEnabledCb.checked = options.journalEnabled;
+        journalFieldsetCbContainer.appendChild(journalEnabledCb);
+
+        const journalEnabledLabel = document.createElement('label');
+        journalEnabledLabel.setAttribute('for', ID_PREFIX + 'journal_enabled');
+        journalEnabledLabel.innerText = 'Enabled';
+        journalFieldsetCbContainer.appendChild(journalEnabledLabel);
+
+        const saveButtonContainer = document.createElement('div');
+        saveButtonContainer.classList.add('right');
+        optionsPanel.appendChild(saveButtonContainer);
+
+        const saveButton = document.createElement('input');
+        saveButton.type = 'button';
+        saveButton.classList.add('form_button', 'form_blue', 'primary');
+        saveButton.value = 'Save';
+        saveButton.addEventListener('click', () => {
+            options.journalEnabled = journalEnabledCb.checked;
+            saveOptions();
+            showNotification('HLTB+ options saved. Reload page to apply changes.');
+        });
+        saveButtonContainer.appendChild(saveButton);
     }
 })();
