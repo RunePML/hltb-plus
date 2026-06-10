@@ -494,9 +494,45 @@
         clear.classList.add('clear');
         innerContainer.appendChild(clear);
 
-        const calendar = new Calendar(calendarPanel, new Date(), newDate => {
-            console.log(newDate);
+        //TODO: Remove test code
+        // TEST CODE START
+        const game1 = new Game('Pokemon Y: Pokedex 100%', '/game/13937', '/games/13937_Pokmon_X_and_Y.png');
+        const game2 = new Game('Car Mechanic Simulator 2018', '/game/48426', '/games/48426_Car_Mechanic_Simulator_2018.jpg');
+        const game3 = new Game('The Wolf Among Us', '/game/14013', '/games/the_wolf_among_us.png');
+        const sessions = [
+            new Session(game1, new Date('2026-06-08T10:00'), 3600000),
+            new Session(game2, new Date('2026-06-08T15:12'), 1800000),
+            new Session(game3, new Date('2026-06-08T18:34'), 1080000),
+            new Session(game3, new Date('2026-06-09T11:44'), 7200000),
+            new Session(game2, new Date('2026-06-09T12:22'), 1080000),
+            new Session(game3, new Date('2026-06-09T15:18'), 9000000),
+            new Session(game1, new Date('2026-06-10T13:28'), 1080000),
+            new Session(game3, new Date('2026-06-10T18:10'), 3600000),
+            new Session(game2, new Date('2026-06-10T21:05'), 10800000),
+        ];
+        // TEST CODE END
+
+        const now = new Date();
+        const journal = new Journal(journalPanel, now, sessions);
+        const calendar = new Calendar(calendarPanel, now, newDate => {
+            journal.setDate(newDate);
         });
+    }
+
+    class Game {
+        constructor(title, link, image) {
+            this.title = title;
+            this.link = link;
+            this.image = image;
+        }
+    }
+
+    class Session {
+        constructor(game, date, duration) {
+            this.game = game;
+            this.date = date;
+            this.duration = duration;
+        }
     }
 
     class Calendar {
@@ -534,6 +570,97 @@
             datePicker.value = this.date.toISOString().split('T')[0];
             datePicker.addEventListener('change', event => this.onDateChange(new Date(datePicker.value)));
             fieldset.appendChild(datePicker);
+        }
+    }
+
+    class Journal {
+        constructor(container, date, sessions) {
+            this.container = container;
+            this.date = date;
+            this.sessions = sessions;
+            this.render();
+        }
+
+        setDate(date) {
+            this.date = date;
+            this.renderEntries();
+        }
+
+        render() {
+            this.renderTitle();
+            this.renderEntries();
+        }
+
+        renderTitle() {
+            const title = document.createElement('h3');
+            title.classList.add('head_padding', 'back_orange', 'center');
+            title.innerText = this.date.toISOString().split('T')[0] + ' Sessions';
+            this.container.appendChild(title);
+        }
+
+        renderEntries() {
+            const entries = this.container.querySelectorAll('.' + ID_PREFIX + 'journal_entry');
+            entries.forEach(entry => entry.remove());
+
+            this.sessions.forEach(session => {
+                if (session.date.getFullYear() === this.date.getFullYear() && session.date.getMonth() === this.date.getMonth() && session.date.getDate() === this.date.getDate())
+                    this.renderJournalEntry(session);
+            });
+        }
+
+        renderJournalEntry(session) {
+            const entry = document.createElement('div');
+            entry.classList.add(ID_PREFIX + 'journal_entry');
+            this.container.appendChild(entry);
+
+            const innerContainer = document.createElement('div');
+            innerContainer.classList.add('in', 'spreadsheet');
+            innerContainer.style.display = 'flex';
+            innerContainer.style.flexDirection = 'row';
+            innerContainer.style.justifyContent = 'space-between';
+            entry.appendChild(innerContainer);
+
+            const data = document.createElement('div');
+            innerContainer.appendChild(data);
+
+            const title = document.createElement('h4');
+            data.appendChild(title);
+
+            const titleLink = document.createElement('a');
+            titleLink.href = session.game.link;
+            titleLink.innerText = session.game.title;
+            title.appendChild(titleLink);
+
+            const duration = document.createElement('strong');
+            duration.innerText = this.formatDuration(session.duration);
+            data.appendChild(duration);
+
+            const dateFromTo = document.createElement('div');
+            dateFromTo.classList.add('text_grey');
+            dateFromTo.innerText = this.formatDateFromTo(session);
+            data.appendChild(dateFromTo);
+
+            const image = document.createElement('img');
+            image.width = 66;
+            image.src = session.game.image;
+            image.style.borderRadius = '3px';
+            innerContainer.appendChild(image);
+        }
+
+        formatDuration(duration) {
+            const totalSeconds = duration / 1000;
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            return 'Duration: ' + hours + 'h ' + minutes + 'm ' + seconds + 's';
+        }
+
+        formatDateFromTo(session) {
+            const startTime = session.date.toISOString().split('T')[1].split(':');
+            const start = startTime[0] + ':' + startTime[1];
+            const endTime = new Date(session.date.getTime() + session.duration).toISOString().split('T')[1].split(':');
+            const end = endTime[0] + ':' + endTime[1];
+            return 'From ' + start + ' to ' + end;
         }
     }
 })();
