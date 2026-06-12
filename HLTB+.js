@@ -93,6 +93,7 @@
 
     function onNavigate() {
         setMainBackgroundColor('transparent');
+        removeJournalTabContainer();
 
         switch (currentPage[0]) {
             case 'submit':
@@ -181,7 +182,7 @@
     }
 
     function onOptionsPage() {
-        waitForElement('.contain_out:last-of-type .contain_in', optionsContainer => {
+        waitForElement('.contain_out:nth-child(2) .contain_in', optionsContainer => {
             const optionsColumns = optionsContainer.querySelectorAll('.content_33');
             createOptionsPanel(optionsColumns[optionsColumns.length - 1]);
         });
@@ -433,7 +434,7 @@
         link.innerText = 'Journal';
         link.href = '#';
         link.addEventListener('click', () => {
-            const activeTabContent = document.querySelector('.contain_out:last-of-type');
+            const activeTabContent = document.querySelector('.contain_out:nth-child(2)');
             activeTabContent.style.display = 'none';
 
             const activeClass = 'back_pink'
@@ -449,10 +450,7 @@
                     activeTabContent.style.display = 'block';
 
                     journalTab.classList.remove(activeClass);
-                    if (journalTabContainer) {
-                        journalTabContainer.remove();
-                        journalTabContainer = null;
-                    }
+                    removeJournalTabContainer();
                 });
             });
 
@@ -517,6 +515,14 @@
         const calendar = new Calendar(calendarPanel, now, newDate => {
             journal.setDate(newDate);
         });
+    }
+
+    function removeJournalTabContainer() {
+        if (!journalTabContainer)
+            return;
+
+        journalTabContainer.remove();
+        journalTabContainer = null;
     }
 
     class Game {
