@@ -251,19 +251,35 @@
         return (hours * 3600) + (minutes * 60) + seconds;
     }
 
+    function createGameFromPageData() {
+        const linkParts = document.querySelector('#tool_community a').href.split('/');
+        return new Game(
+            document.querySelector('h1').innerText,
+            '/game/' + linkParts[linkParts.length - 1], // TODO: Get edit session link instead
+            document.querySelector('#tool_community img').src // TODO: Get shorter src link
+        );
+    }
+
     function customizeCurrentProgress(currentProgressElement) {
         editPage.currentProgress = getCurrentProgressInSeconds(currentProgressElement);
-        console.log('Current progress in seconds: ', editPage.currentProgress);
 
         const saveBtn = document.querySelector('.global_padding_big.form_blue');
         saveBtn.addEventListener('click', () => {
+            const game = createGameFromPageData();
             const savedProgress = getCurrentProgressInSeconds(currentProgressElement);
             const totalSeconds = savedProgress - editPage.currentProgress;
             const hours = Math.floor(totalSeconds / 3600);
             const minutes = Math.floor((totalSeconds % 3600) / 60);
             const seconds = totalSeconds % 60;
-            const gameTitle = document.querySelector('h1').innerText;
-            showNotification('Game: ' + gameTitle + ' - Session duration: ' + hours + 'h&nbsp;' + minutes + 'm&nbsp;' + seconds + 's');
+            showNotification('Game: ' + game.title + ' - Session duration: ' + hours + 'h&nbsp;' + minutes + 'm&nbsp;' + seconds + 's');
+
+            if (options.journalEnabled) {
+                addSession(new Session(
+                    game,
+                    new Date(new Date().getTime() - (totalSeconds * 1000)),
+                    totalSeconds * 1000
+                ));
+            }
         });
     }
 
@@ -364,6 +380,25 @@
             notification.remove();
         });
         notificationsContainer.appendChild(notification);
+    }
+
+    function loadSessions() {
+        const sessionsRaw = localStorage.getItem(ID_PREFIX + 'sessions');
+        const sessions = sessionsRaw ? JSON.parse(sessionsRaw) : [];
+        return sessions.map(session => new Session(session.game, new Date(session.date), session.duration));
+    }
+
+    function saveSessions(sessions) {
+        localStorage.setItem(
+            ID_PREFIX + 'sessions',
+            JSON.stringify(sessions.map(session => new Session(session.game, session.date.getTime(), session.duration)))
+        );
+    }
+
+    function addSession(session) {
+        const sessions = loadSessions();
+        sessions.push(session);
+        saveSessions(sessions);
     }
 
     function createOptionsPanel(container) {
@@ -492,26 +527,8 @@
         clear.classList.add('clear');
         innerContainer.appendChild(clear);
 
-        //TODO: Remove test code
-        // TEST CODE START
-        const game1 = new Game('Pokemon Y: Pokedex 100%', '/game/13937', '/games/13937_Pokmon_X_and_Y.png');
-        const game2 = new Game('Car Mechanic Simulator 2018', '/game/48426', '/games/48426_Car_Mechanic_Simulator_2018.jpg');
-        const game3 = new Game('The Wolf Among Us', '/game/14013', '/games/the_wolf_among_us.png');
-        const sessions = [
-            new Session(game1, new Date('2026-06-08T10:00'), 3600000),
-            new Session(game2, new Date('2026-06-08T15:12'), 1800000),
-            new Session(game3, new Date('2026-06-08T18:34'), 1080000),
-            new Session(game3, new Date('2026-06-09T11:44'), 7200000),
-            new Session(game2, new Date('2026-06-09T12:22'), 1080000),
-            new Session(game3, new Date('2026-06-09T15:18'), 9000000),
-            new Session(game1, new Date('2026-06-10T13:28'), 1080000),
-            new Session(game3, new Date('2026-06-10T18:10'), 3600000),
-            new Session(game2, new Date('2026-06-10T21:05'), 10800000),
-        ];
-        // TEST CODE END
-
         const now = new Date();
-        const journal = new Journal(journalPanel, now, sessions);
+        const journal = new Journal(journalPanel, now, loadSessions());
         const calendar = new Calendar(calendarPanel, now, newDate => {
             journal.setDate(newDate);
         });
@@ -664,6 +681,7 @@
         formatDateFromTo(session) {
             const startTime = session.date.toISOString().split('T')[1].split(':');
             const start = startTime[0] + ':' + startTime[1];
+            // TODO: Adjust timezone
             const endTime = new Date(session.date.getTime() + session.duration).toISOString().split('T')[1].split(':');
             const end = endTime[0] + ':' + endTime[1];
             return 'From ' + start + ' to ' + end;
