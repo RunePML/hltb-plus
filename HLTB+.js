@@ -386,16 +386,37 @@
         notificationsContainer.appendChild(notification);
     }
 
+    function loadGames() {
+        const gamesRaw = localStorage.getItem(ID_PREFIX + 'games');
+        return gamesRaw ? JSON.parse(gamesRaw) : [];
+    }
+
+    function saveGames(games) {
+        localStorage.setItem(ID_PREFIX + 'games', JSON.stringify(games));
+    }
+
     function loadSessions() {
         const sessionsRaw = localStorage.getItem(ID_PREFIX + 'sessions');
         const sessions = sessionsRaw ? JSON.parse(sessionsRaw) : [];
-        return sessions.map(session => new Session(session.game, new Date(session.date), session.duration));
+        return sessions.map(
+            session => new Session(
+                loadGames().find(game => game.link === session.game),
+                new Date(session.date),
+                session.duration)
+        );
     }
 
     function saveSessions(sessions) {
+        const games = loadGames();
+        sessions.forEach(session => {
+            if (!games.find(game => game.link === session.game.link))
+                games.push(session.game);
+        });
+        saveGames(games);
+
         localStorage.setItem(
             ID_PREFIX + 'sessions',
-            JSON.stringify(sessions.map(session => new Session(session.game, session.date.getTime(), session.duration)))
+            JSON.stringify(sessions.map(session => new Session(session.game.link, session.date.getTime(), session.duration)))
         );
     }
 
@@ -684,9 +705,9 @@
 
         formatTimeFromTo(session) {
             const format = (number) => {
-                return number >= 10 
-                ? number.toString()
-                : '0' + number.toString()
+                return number >= 10
+                    ? number.toString()
+                    : '0' + number.toString()
             };
             const start = format(session.date.getHours()) + ':' + format(session.date.getMinutes());
             const endTime = new Date(session.date.getTime() + session.duration);
