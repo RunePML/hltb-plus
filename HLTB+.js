@@ -252,11 +252,12 @@
     }
 
     function createGameFromPageData() {
-        const linkParts = document.querySelector('#tool_community a').href.split('/');
+        const linkParts = window.location.href.split('/');
+        const imgParts = document.querySelector('#tool_community img').src.split('/');
         return new Game(
-            document.querySelector('h1').innerText,
-            '/game/' + linkParts[linkParts.length - 1], // TODO: Get edit session link instead
-            document.querySelector('#tool_community img').src // TODO: Get shorter src link
+            document.querySelector('input[name="title"]').value,
+            linkParts[linkParts.length - 1],
+            imgParts[imgParts.length - 1].split('?')[0]
         );
     }
 
@@ -265,12 +266,15 @@
 
         const saveBtn = document.querySelector('.global_padding_big.form_blue');
         saveBtn.addEventListener('click', () => {
-            const game = createGameFromPageData();
             const savedProgress = getCurrentProgressInSeconds(currentProgressElement);
             const totalSeconds = savedProgress - editPage.currentProgress;
+            if (totalSeconds <= 0)
+                return;
+
             const hours = Math.floor(totalSeconds / 3600);
             const minutes = Math.floor((totalSeconds % 3600) / 60);
             const seconds = totalSeconds % 60;
+            const game = createGameFromPageData();
             showNotification('Game: ' + game.title + ' - Session duration: ' + hours + 'h&nbsp;' + minutes + 'm&nbsp;' + seconds + 's');
 
             if (options.journalEnabled) {
@@ -650,7 +654,7 @@
             data.appendChild(title);
 
             const titleLink = document.createElement('a');
-            titleLink.href = session.game.link;
+            titleLink.href = '/submit/edit/' + session.game.link;
             titleLink.innerText = session.game.title;
             title.appendChild(titleLink);
 
@@ -658,14 +662,14 @@
             duration.innerText = this.formatDuration(session.duration);
             data.appendChild(duration);
 
-            const dateFromTo = document.createElement('div');
-            dateFromTo.classList.add('text_grey');
-            dateFromTo.innerText = this.formatDateFromTo(session);
-            data.appendChild(dateFromTo);
+            const timeFromTo = document.createElement('div');
+            timeFromTo.classList.add('text_grey');
+            timeFromTo.innerText = this.formatTimeFromTo(session);
+            data.appendChild(timeFromTo);
 
             const image = document.createElement('img');
             image.width = 66;
-            image.src = session.game.image;
+            image.src = '/games/' + session.game.image;
             image.style.borderRadius = '3px';
             innerContainer.appendChild(image);
         }
@@ -678,12 +682,15 @@
             return 'Duration: ' + hours + 'h ' + minutes + 'm ' + seconds + 's';
         }
 
-        formatDateFromTo(session) {
-            const startTime = session.date.toISOString().split('T')[1].split(':');
-            const start = startTime[0] + ':' + startTime[1];
-            // TODO: Adjust timezone
-            const endTime = new Date(session.date.getTime() + session.duration).toISOString().split('T')[1].split(':');
-            const end = endTime[0] + ':' + endTime[1];
+        formatTimeFromTo(session) {
+            const format = (number) => {
+                return number >= 10 
+                ? number.toString()
+                : '0' + number.toString()
+            };
+            const start = format(session.date.getHours()) + ':' + format(session.date.getMinutes());
+            const endTime = new Date(session.date.getTime() + session.duration);
+            const end = format(endTime.getHours()) + ':' + format(endTime.getMinutes());
             return 'From ' + start + ' to ' + end;
         }
     }
