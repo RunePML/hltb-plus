@@ -634,6 +634,17 @@
             this.renderEntries();
         }
 
+        deleteJournalEntry(session) {
+            if (confirm('Are you sure you want to delete this journal entry?')) {
+                const index = this.sessions.findIndex(s => s.game.link === session.game.link && s.date.getTime() === session.date.getTime());
+                if (index !== -1) {
+                    this.sessions.splice(index, 1);
+                    saveSessions(this.sessions);
+                    this.renderEntries();
+                }
+            }
+        }
+
         render() {
             this.renderTitle();
             this.renderEntries();
@@ -672,12 +683,17 @@
             innerContainer.appendChild(data);
 
             const title = document.createElement('h4');
+            title.style.display = 'flex';
+            title.style.flexDirection = 'row';
+            title.style.gap = '8px';
             data.appendChild(title);
 
             const titleLink = document.createElement('a');
             titleLink.href = '/submit/edit/' + session.game.link;
             titleLink.innerText = session.game.title;
             title.appendChild(titleLink);
+
+            this.renderEntryActions(session, title);
 
             const duration = document.createElement('strong');
             duration.innerText = this.formatDuration(session.duration);
@@ -693,6 +709,17 @@
             image.src = '/games/' + session.game.image;
             image.style.borderRadius = '3px';
             innerContainer.appendChild(image);
+        }
+
+        renderEntryActions(session, container) {
+            const deleteAction = document.createElement('img');
+            deleteAction.src = '/img/icon_delete.png';
+            deleteAction.width = '23';
+            deleteAction.height = '23';
+            deleteAction.title = 'Delete entry';
+            deleteAction.style.cursor = 'pointer';
+            deleteAction.addEventListener('click', () => { this.deleteJournalEntry(session) });
+            container.appendChild(deleteAction);
         }
 
         formatDuration(duration) {
