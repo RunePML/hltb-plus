@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         HLTB+
 // @namespace    http://tampermonkey.net/
-// @version      0.7
+// @version      0.8
 // @description  QoL improvements for HLTB
 // @author       RunePML
 // @match        https://howlongtobeat.com/*
@@ -50,10 +50,8 @@
                 return;
             } else if (maxAttempts !== -1) {
                 attempts++;
-                if (attempts > maxAttempts) {
-                    console.error('Element not found', selector);
+                if (attempts > maxAttempts)
                     clearInterval(waitInterval);
-                }
             }
         }, 100);
     }
@@ -497,13 +495,14 @@
             const activeTabContent = document.querySelector('.contain_out:nth-child(2)');
             activeTabContent.style.display = 'none';
 
-            const activeClass = 'back_pink'
+            const activeClass = 'back_pink';
             journalTab.classList.add(activeClass);
 
             const tabs = navigationElement.querySelectorAll('li');
             Array.from(tabs).forEach(tab => {
                 if (tab === journalTab)
                     return;
+
                 tab.classList.remove(activeClass);
                 tab.addEventListener('click', () => {
                     tab.classList.add(activeClass);
@@ -553,7 +552,10 @@
         innerContainer.appendChild(clear);
 
         const now = new Date();
-        const journal = new Journal(journalPanel, now, loadSessions());
+        const journal = new Journal(journalPanel, now, loadSessions(),
+            () => { calendar.moveToPrevDate(); },
+            () => { calendar.moveToNextDate(); }
+        );
         const calendar = new Calendar(calendarPanel, now, newDate => {
             journal.setDate(newDate);
         });
@@ -588,6 +590,7 @@
             this.container = container;
             this.date = date;
             this.onDateChange = onDateChange;
+            this.datePicker = null;
             this.render();
         }
 
@@ -612,25 +615,43 @@
             title.innerText = 'Date:';
             fieldset.appendChild(title);
 
-            const datePicker = document.createElement('input');
-            datePicker.classList.add('form_text', 'back_form');
-            datePicker.type = 'date';
-            datePicker.value = this.date.toISOString().split('T')[0];
-            datePicker.addEventListener('change', event => this.onDateChange(new Date(datePicker.value)));
-            fieldset.appendChild(datePicker);
+            this.datePicker = document.createElement('input');
+            this.datePicker.classList.add('form_text', 'back_form');
+            this.datePicker.type = 'date';
+            this.datePicker.addEventListener('change', event => this.onDateChange(new Date(this.datePicker.value)));
+            this.updateDatepickerDate();
+            fieldset.appendChild(this.datePicker);
+        }
+
+        updateDatepickerDate(date) {
+            this.datePicker.value = this.date.toISOString().split('T')[0];
+            this.datePicker.dispatchEvent(new Event('change'));
+        }
+
+        moveToPrevDate() {
+            this.date.setDate(this.date.getDate() - 1);
+            this.updateDatepickerDate();
+        }
+
+        moveToNextDate() {
+            this.date.setDate(this.date.getDate() + 1);
+            this.updateDatepickerDate();
         }
     }
 
     class Journal {
-        constructor(container, date, sessions) {
+        constructor(container, date, sessions, onPrevDateCb, onNextDateCb) {
             this.container = container;
             this.date = date;
             this.sessions = sessions;
+            this.onPrevDateCb = onPrevDateCb;
+            this.onNextDateCb = onNextDateCb;
             this.render();
         }
 
         setDate(date) {
             this.date = date;
+            this.updateTitleText();
             this.renderEntries();
         }
 
@@ -653,18 +674,47 @@
         renderTitle() {
             const title = document.createElement('h3');
             title.classList.add('head_padding', 'back_orange', 'center');
-            title.innerText = this.date.toISOString().split('T')[0] + ' Sessions';
+            title.style.display = 'flex';
+            title.style.justifyContent = 'space-between';
             this.container.appendChild(title);
+
+            const prevButton = document.createElement('button');
+            prevButton.innerHTML = '&lt;';
+            prevButton.addEventListener('click', this.onPrevDateCb);
+            title.appendChild(prevButton);
+
+            const titleText = document.createElement('span');
+            titleText.id = ID_PREFIX + 'journal_title_text';
+            title.appendChild(titleText);
+            this.updateTitleText();
+
+            const nextButton = document.createElement('button');
+            nextButton.innerHTML = '&gt;';
+            nextButton.addEventListener('click', this.onNextDateCb);
+            title.appendChild(nextButton);
         }
 
         renderEntries() {
             const entries = this.container.querySelectorAll('.' + ID_PREFIX + 'journal_entry');
             entries.forEach(entry => entry.remove());
+            this.container.querySelector('h4')?.remove();
 
+            let sessionsCount = 0;
             this.sessions.forEach(session => {
-                if (session.date.getFullYear() === this.date.getFullYear() && session.date.getMonth() === this.date.getMonth() && session.date.getDate() === this.date.getDate())
+                if (session.date.getFullYear() === this.date.getFullYear() && session.date.getMonth() === this.date.getMonth() && session.date.getDate() === this.date.getDate()) {
                     this.renderJournalEntry(session);
+                    sessionsCount++;
+                }
             });
+            if (sessionsCount === 0)
+                this.renderNoDataMessage();
+        }
+
+        renderNoDataMessage() {
+            const message = document.createElement('h4');
+            message.classList.add('center');
+            message.innerText = '-- No Data --';
+            this.container.appendChild(message);
         }
 
         renderJournalEntry(session) {
@@ -720,6 +770,11 @@
             deleteAction.style.cursor = 'pointer';
             deleteAction.addEventListener('click', () => { this.deleteJournalEntry(session) });
             container.appendChild(deleteAction);
+        }
+
+        updateTitleText() {
+            const titleText = document.querySelector('#' + ID_PREFIX + 'journal_title_text');
+            titleText.innerText = this.date.toISOString().split('T')[0] + ' Sessions';
         }
 
         formatDuration(duration) {
