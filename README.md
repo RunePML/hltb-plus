@@ -1,6 +1,9 @@
 # hltb-plus
 A userscripts for HowLongToBeat with some QoL improvements
 
+## Installation
+Go to the __Greasy Fork__ [link](https://greasyfork.org/es/scripts/583271-hltb) and click the __"Install this script"__ button.
+
 ## V0.8 - 2026-06-18
 ### Added
 - __HLTB+__ section added to __Options__ page.
