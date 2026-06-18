@@ -269,7 +269,7 @@
             if (totalSeconds <= 0)
                 return;
 
-            const hours = Math.floor(totalSeconds / 3600);
+            const hours = Math.floor(totalSeconds / 3600); // TODO: Extract to a global function
             const minutes = Math.floor((totalSeconds % 3600) / 60);
             const seconds = totalSeconds % 60;
             const game = createGameFromPageData();
@@ -537,7 +537,12 @@
 
         const calendarPanel = document.createElement('div');
         calendarPanel.classList.add('in', 'back_secondary', 'shadow_box');
+        calendarPanel.style.marginBottom = '12px';
         leftColumn.appendChild(calendarPanel);
+
+        const summaryPanel = document.createElement('div');
+        summaryPanel.classList.add('in', 'back_primary', 'shadow_box');
+        leftColumn.appendChild(summaryPanel);
 
         const rightColumn = document.createElement('div');
         rightColumn.classList.add('content_75', 'spaced');
@@ -552,12 +557,16 @@
         innerContainer.appendChild(clear);
 
         const now = new Date();
-        const journal = new Journal(journalPanel, now, loadSessions(),
+        const sessions = loadSessions();
+
+        const journal = new Journal(journalPanel, now, sessions,
             () => { calendar.moveToPrevDate(); },
             () => { calendar.moveToNextDate(); }
         );
+        const summary = new Summary(summaryPanel, now, sessions);
         const calendar = new Calendar(calendarPanel, now, newDate => {
             journal.setDate(newDate);
+            summary.setDate(newDate);
         });
     }
 
@@ -567,6 +576,14 @@
 
         journalTabContainer.remove();
         journalTabContainer = null;
+    }
+
+    function filterSessionsByDate(sessions, date) {
+        return sessions.filter(session =>
+            session.date.getFullYear() === date.getFullYear()
+            && session.date.getMonth() === date.getMonth()
+            && session.date.getDate() === date.getDate()
+        );
     }
 
     class Game {
@@ -699,14 +716,11 @@
             entries.forEach(entry => entry.remove());
             this.container.querySelector('h4')?.remove();
 
-            let sessionsCount = 0;
-            this.sessions.forEach(session => {
-                if (session.date.getFullYear() === this.date.getFullYear() && session.date.getMonth() === this.date.getMonth() && session.date.getDate() === this.date.getDate()) {
-                    this.renderJournalEntry(session);
-                    sessionsCount++;
-                }
+            let filteredSessions = filterSessionsByDate(this.sessions, this.date);
+            filteredSessions.forEach(session => {
+                this.renderJournalEntry(session);
             });
-            if (sessionsCount === 0)
+            if (filteredSessions.length === 0)
                 this.renderNoDataMessage();
         }
 
@@ -777,7 +791,7 @@
             titleText.innerText = this.date.toISOString().split('T')[0] + ' Sessions';
         }
 
-        formatDuration(duration) {
+        formatDuration(duration) { // TODO: Extract to a global function
             const totalSeconds = duration / 1000;
             const hours = Math.floor(totalSeconds / 3600);
             const minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -795,6 +809,49 @@
             const endTime = new Date(session.date.getTime() + session.duration);
             const end = format(endTime.getHours()) + ':' + format(endTime.getMinutes());
             return 'From ' + start + ' to ' + end;
+        }
+    }
+
+    class Summary {
+        constructor(container, date, sessions) {
+            this.container = container;
+            this.date = date;
+            this.sessions = sessions;
+            this.timeSummary = null;
+            this.render();
+            this.updateSummary();
+        }
+
+        setDate(date) {
+            this.date = date;
+            this.updateSummary();
+        }
+
+        render() {
+            this.renderTitle();
+            this.renderSummary();
+        }
+
+        renderTitle() {
+            const title = document.createElement('h3');
+            title.classList.add('head_padding', 'back_orange', 'center');
+            title.innerText = 'Summary';
+            this.container.appendChild(title);
+        }
+
+        renderSummary() {
+            this.timeSummary = document.createElement('h4');
+            this.timeSummary.innerHTML = 'Time played: <span></span>';
+            this.container.appendChild(this.timeSummary);
+        }
+
+        updateSummary() {
+            let totalTime = 0;
+            filterSessionsByDate(this.sessions, this.date).forEach(session => {
+                totalTime += session.duration;
+            });
+
+            this.timeSummary.querySelector('span').innerText = totalTime + 'ms'; // TODO: Format properly
         }
     }
 })();
