@@ -265,6 +265,10 @@
         return { h: hours, m: minutes, s: seconds % 60 };
     }
 
+    function formatDate(date) {
+        return date.getDate() + '-' + (date.getMonth() + 1) + '-' + date.getFullYear();
+    }
+
     function customizeCurrentProgress(currentProgressElement) {
         editPage.currentProgress = getCurrentProgressInSeconds(currentProgressElement);
 
@@ -582,12 +586,15 @@
         journalTabContainer = null;
     }
 
-    function filterSessionsByDate(sessions, date) {
-        return sessions.filter(session =>
-            session.date.getFullYear() === date.getFullYear()
-            && session.date.getMonth() === date.getMonth()
-            && session.date.getDate() === date.getDate()
-        );
+    function filterSessionsByDates(sessions, dateStart, dateEnd) {
+        const cleanDateStart = new Date(dateStart.getFullYear(), dateStart.getMonth(), dateStart.getDate());
+        let cleanDateEnd = dateEnd
+            ? new Date(dateEnd.getFullYear(), dateEnd.getMonth(), dateEnd.getDate())
+            : new Date(cleanDateStart);
+        if (!dateEnd)
+            cleanDateEnd.setDate(cleanDateEnd.getDate() + 1);
+
+        return sessions.filter(session => session.date >= cleanDateStart && session.date <= cleanDateEnd);
     }
 
     class Game {
@@ -639,7 +646,10 @@
             this.datePicker = document.createElement('input');
             this.datePicker.classList.add('form_text', 'back_form');
             this.datePicker.type = 'date';
-            this.datePicker.addEventListener('change', event => this.onDateChange(new Date(this.datePicker.value)));
+            this.datePicker.addEventListener('change', event => {
+                this.date = new Date(this.datePicker.value);
+                this.onDateChange(this.date);
+            });
             this.updateDatepickerDate();
             fieldset.appendChild(this.datePicker);
         }
@@ -720,7 +730,7 @@
             entries.forEach(entry => entry.remove());
             this.container.querySelector('h4')?.remove();
 
-            let filteredSessions = filterSessionsByDate(this.sessions, this.date);
+            let filteredSessions = filterSessionsByDates(this.sessions, this.date);
             filteredSessions.forEach(session => {
                 this.renderJournalEntry(session);
             });
@@ -793,7 +803,7 @@
 
         updateTitleText() {
             const titleText = document.querySelector('#' + ID_PREFIX + 'journal_title_text');
-            titleText.innerText = this.date.toISOString().split('T')[0] + ' Sessions';
+            titleText.innerText = formatDate(this.date) + ' Sessions';
         }
 
         formatTimeFromTo(session) {
@@ -813,12 +823,21 @@
         constructor(container, date, sessions) {
             this.container = container;
             this.date = date;
+            this.dateStart = null;
+            this.dateEnd = null;
             this.sessions = sessions;
+            this.range = 'day';
+            this.rangeSelector = null;
+            this.rangeDayBtn = null;
+            this.rangeWeekBtn = null;
+            this.rangeMonthBtn = null;
+            this.rangeYearBtn = null;
+            this.fromToDates = null;
             this.gamesCount = null;
             this.sessionsCount = null;
             this.timeSummary = null;
             this.render();
-            this.updateSummary();
+            this.setRange(this.range);
         }
 
         setDate(date) {
@@ -826,8 +845,50 @@
             this.updateSummary();
         }
 
+        calculateRangeDates() {
+            switch (this.range) {
+                case 'day':
+                    this.dateStart = new Date(this.date.getFullYear(), this.date.getMonth(), this.date.getDate());
+                    this.dateEnd = new Date(this.date.getFullYear(), this.date.getMonth(), this.date.getDate() + 1);
+                    break;
+                case 'week':
+                    this.dateStart = new Date(this.date.getFullYear(), this.date.getMonth(), this.date.getDate());
+                    let day = this.dateStart.getDay() || 7;
+                    if (day !== 1)
+                        this.dateStart.setHours(-24 * (day - 1));
+                    this.dateEnd = new Date(this.dateStart.getFullYear(), this.dateStart.getMonth(), this.dateStart.getDate() + 6);
+                    break;
+                case 'month':
+                    this.dateStart = new Date(this.date.getFullYear(), this.date.getMonth(), 1);
+                    this.dateEnd = new Date(this.date.getFullYear(), this.date.getMonth(), new Date(this.date.getFullYear(), this.date.getMonth() + 1, 0).getDate());
+                    break;
+                case 'year':
+                    this.dateStart = new Date(this.date.getFullYear(), 0, 1);
+                    this.dateEnd = new Date(this.date.getFullYear(), 11, 31);
+                    break;
+            }
+        }
+
+        setRange(range) {
+            this.range = range;
+
+            [this.rangeDayBtn, this.rangeWeekBtn, this.rangeMonthBtn, this.rangeYearBtn].forEach(btn => {
+                if (btn.classList.contains(this.range)) {
+                    btn.classList.remove('back_secondary');
+                    btn.classList.add('back_green');
+                } else {
+                    btn.classList.remove('back_green');
+                    btn.classList.add('back_secondary');
+                }
+            });
+
+            this.updateSummary();
+        }
+
         render() {
             this.renderTitle();
+            this.renderRangeSelector();
+            this.renderFromToDates();
             this.renderSummary();
         }
 
@@ -838,10 +899,38 @@
             this.container.appendChild(title);
         }
 
+        renderRangeSelector() {
+            this.rangeSelector = document.createElement('div');
+            this.rangeSelector.style.display = 'flex';
+            this.container.appendChild(this.rangeSelector);
+
+            this.rangeDayBtn = this.addRangeButton('Day', 'day');
+            this.rangeWeekBtn = this.addRangeButton('Week', 'week');
+            this.rangeMonthBtn = this.addRangeButton('Month', 'month');
+            this.rangeYearBtn = this.addRangeButton('Year', 'year');
+        }
+
+        renderFromToDates() {
+            this.fromToDates = document.createElement('h4');
+            this.fromToDates.style.padding = '4px 10px';
+            this.fromToDates.innerHTML = 'From <span class="from text_grey"></span> to <span class="to text_grey"></span>';
+            this.container.appendChild(this.fromToDates);
+        }
+
         renderSummary() {
             this.gamesCount = this.addField('Unique games played');
             this.sessionsCount = this.addField('Play sessions');
             this.timeSummary = this.addField('Time played');
+        }
+
+        addRangeButton(label, range) {
+            const button = document.createElement('button');
+            button.style.flex = '1';
+            button.classList.add(range, 'form_button', 'back_secondary');
+            button.innerText = label;
+            button.addEventListener('click', () => this.setRange(range));
+            this.rangeSelector.appendChild(button);
+            return button;
         }
 
         addField(label) {
@@ -854,8 +943,22 @@
             return field;
         }
 
+        updateFromToDates() {
+            if (this.range === 'day') {
+                this.fromToDates.style.display = 'none';
+                return;
+            }
+            this.fromToDates.style.display = 'block';
+
+            this.fromToDates.querySelector('.from').innerText = formatDate(this.dateStart);
+            this.fromToDates.querySelector('.to').innerText = formatDate(this.dateEnd);
+        }
+
         updateSummary() {
-            const filteredSessions = filterSessionsByDate(this.sessions, this.date);
+            this.calculateRangeDates();
+            this.updateFromToDates();
+
+            const filteredSessions = filterSessionsByDates(this.sessions, this.dateStart, this.dateEnd);
             let gameIds = [];
             let totalTime = 0;
 
