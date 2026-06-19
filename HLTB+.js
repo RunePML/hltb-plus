@@ -259,6 +259,12 @@
         );
     }
 
+    function formatDuration(seconds) {
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        return { h: hours, m: minutes, s: seconds % 60 };
+    }
+
     function customizeCurrentProgress(currentProgressElement) {
         editPage.currentProgress = getCurrentProgressInSeconds(currentProgressElement);
 
@@ -269,11 +275,9 @@
             if (totalSeconds <= 0)
                 return;
 
-            const hours = Math.floor(totalSeconds / 3600); // TODO: Extract to a global function
-            const minutes = Math.floor((totalSeconds % 3600) / 60);
-            const seconds = totalSeconds % 60;
             const game = createGameFromPageData();
-            showNotification('Game: ' + game.title + ' - Session duration: ' + hours + 'h&nbsp;' + minutes + 'm&nbsp;' + seconds + 's');
+            const duration = formatDuration(totalSeconds);
+            showNotification('Game: ' + game.title + ' - Session duration: ' + duration.h + 'h&nbsp;' + duration.m + 'm&nbsp;' + duration.s + 's');
 
             if (options.journalEnabled) {
                 addSession(new Session(
@@ -440,7 +444,7 @@
         optionsPanel.appendChild(title);
 
         const journalFieldset = document.createElement('fieldset');
-        journalFieldset.classList.add('options-module__S5himG__radios', 'spreadsheet');
+        journalFieldset.classList.add('options-module__S5himG__fields', 'spreadsheet');
         optionsPanel.appendChild(journalFieldset);
 
         const journalFieldsetTitle = document.createElement('h4');
@@ -760,7 +764,8 @@
             this.renderEntryActions(session, title);
 
             const duration = document.createElement('strong');
-            duration.innerText = this.formatDuration(session.duration);
+            const d = formatDuration(session.duration / 1000);
+            duration.innerText = d.h + 'h ' + d.m + 'm ' + d.s + 's';
             data.appendChild(duration);
 
             const timeFromTo = document.createElement('div');
@@ -791,14 +796,6 @@
             titleText.innerText = this.date.toISOString().split('T')[0] + ' Sessions';
         }
 
-        formatDuration(duration) { // TODO: Extract to a global function
-            const totalSeconds = duration / 1000;
-            const hours = Math.floor(totalSeconds / 3600);
-            const minutes = Math.floor((totalSeconds % 3600) / 60);
-            const seconds = totalSeconds % 60;
-            return 'Duration: ' + hours + 'h ' + minutes + 'm ' + seconds + 's';
-        }
-
         formatTimeFromTo(session) {
             const format = (number) => {
                 return number >= 10
@@ -817,6 +814,8 @@
             this.container = container;
             this.date = date;
             this.sessions = sessions;
+            this.gamesCount = null;
+            this.sessionsCount = null;
             this.timeSummary = null;
             this.render();
             this.updateSummary();
@@ -840,18 +839,36 @@
         }
 
         renderSummary() {
-            this.timeSummary = document.createElement('h4');
-            this.timeSummary.innerHTML = 'Time played: <span></span>';
-            this.container.appendChild(this.timeSummary);
+            this.gamesCount = this.addField('Unique games played');
+            this.sessionsCount = this.addField('Play sessions');
+            this.timeSummary = this.addField('Time played');
+        }
+
+        addField(label) {
+            const field = document.createElement('h4');
+            field.style.padding = '4px 10px';
+            field.style.display = 'flex';
+            field.style.justifyContent = 'space-between';
+            field.innerHTML = label + ': <span class="text_grey"></span>';
+            this.container.appendChild(field);
+            return field;
         }
 
         updateSummary() {
+            const filteredSessions = filterSessionsByDate(this.sessions, this.date);
+            let gameIds = [];
             let totalTime = 0;
-            filterSessionsByDate(this.sessions, this.date).forEach(session => {
+
+            filteredSessions.forEach(session => {
+                if (gameIds.indexOf(session.game.link) < 0)
+                    gameIds.push(session.game.link);
                 totalTime += session.duration;
             });
 
-            this.timeSummary.querySelector('span').innerText = totalTime + 'ms'; // TODO: Format properly
+            this.gamesCount.querySelector('span').innerText = gameIds.length;
+            this.sessionsCount.querySelector('span').innerText = filteredSessions.length;
+            const d = formatDuration(totalTime / 1000);
+            this.timeSummary.querySelector('span').innerText = d.h + 'h ' + d.m + 'm ' + d.s + 's';
         }
     }
 })();
