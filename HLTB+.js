@@ -853,7 +853,7 @@
             switch (this.range) {
                 case 'day':
                     this.dateStart = new Date(this.date.getFullYear(), this.date.getMonth(), this.date.getDate());
-                    this.dateEnd = new Date(this.date.getFullYear(), this.date.getMonth(), this.date.getDate() + 1);
+                    this.dateEnd = this.dateStart;
                     break;
                 case 'week':
                     this.dateStart = new Date(this.date.getFullYear(), this.date.getMonth(), this.date.getDate());
@@ -1017,6 +1017,7 @@
                 rank.style.flexDirection = 'column';
                 rank.style.alignItems = 'center';
                 rank.href = '/submit/edit/' + gameRank.game.link;
+                rank.title = gameRank.game.title;
                 this.ranking.appendChild(rank);
 
                 const image = document.createElement('img');
