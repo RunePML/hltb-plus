@@ -4,6 +4,12 @@ A userscripts for HowLongToBeat with some QoL improvements
 ## Installation
 Go to the __Greasy Fork__ [link](https://greasyfork.org/es/scripts/583271-hltb) and click the __"Install this script"__ button.
 
+## V0.9 - XXXX-XX-XX
+### Added
+- New __Summary__ panel added to __Journal__ page with a __date range__ selector.
+- Stats added to the __Summary__ panel (__*Games, Sessions and Time played*__).
+- __Most played games__ section added to the __Summary__ panel.
+
 ## V0.8 - 2026-06-18
 ### Added
 - __HLTB+__ section added to __Options__ page.

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         HLTB+
 // @namespace    http://tampermonkey.net/
-// @version      0.8
+// @version      0.9
 // @description  QoL improvements for HLTB
 // @author       RunePML
 // @match        https://howlongtobeat.com/*
@@ -839,6 +839,7 @@
             this.gamesCount = null;
             this.sessionsCount = null;
             this.timeSummary = null;
+            this.ranking = null;
             this.render();
             this.setRange(this.range);
         }
@@ -893,6 +894,7 @@
             this.renderRangeSelector();
             this.renderFromToDates();
             this.renderSummary();
+            this.renderRanking();
         }
 
         renderTitle() {
@@ -924,6 +926,18 @@
             this.gamesCount = this.addField('Unique games played');
             this.sessionsCount = this.addField('Play sessions');
             this.timeSummary = this.addField('Time played');
+        }
+
+        renderRanking() {
+            const title = document.createElement('h4');
+            title.style.padding = '4px 0';
+            title.innerText = 'Most played games'
+            this.container.appendChild(title);
+
+            this.ranking = document.createElement('div');
+            this.ranking.style.display = 'flex';
+            this.ranking.style.justifyContent = 'space-around';
+            this.container.appendChild(this.ranking);
         }
 
         addRangeButton(label, range) {
@@ -975,6 +989,47 @@
             this.sessionsCount.querySelector('span').innerText = filteredSessions.length;
             const d = formatDuration(totalTime / 1000);
             this.timeSummary.querySelector('span').innerText = d.h + 'h ' + d.m + 'm ' + d.s + 's';
+
+            this.updateRanking(filteredSessions);
+        }
+
+        updateRanking(filteredSessions) {
+            this.ranking.innerHTML = '';
+
+            const gamesRank = [];
+
+            filteredSessions.forEach(session => {
+                let gameRank = gamesRank.filter(g => g.game.link === session.game.link)[0];
+                if (!gameRank)
+                    gamesRank.push({ game: session.game, time: session.duration });
+                else
+                    gameRank.time += session.duration;
+            });
+
+            gamesRank.sort((a, b) => b.time - a.time);
+
+            const rankingSize = 3;
+            for (let i = 0; i < gamesRank.length && i < rankingSize; i++) {
+                const gameRank = gamesRank[i];
+
+                const rank = document.createElement('a');
+                rank.style.display = 'flex';
+                rank.style.flexDirection = 'column';
+                rank.style.alignItems = 'center';
+                rank.href = '/submit/edit/' + gameRank.game.link;
+                this.ranking.appendChild(rank);
+
+                const image = document.createElement('img');
+                image.width = 66;
+                image.src = '/games/' + gameRank.game.image;
+                image.style.borderRadius = '3px';
+                rank.appendChild(image);
+
+                const time = document.createElement('span');
+                const t = formatDuration(gameRank.time / 1000);
+                time.innerText = t.h + 'h ' + t.m + 'm ' + t.s + 's'
+                rank.appendChild(time);
+            }
         }
     }
 })();
