@@ -586,15 +586,18 @@
         journalTabContainer = null;
     }
 
-    function filterSessionsByDates(sessions, dateStart, dateEnd) {
-        const cleanDateStart = new Date(dateStart.getFullYear(), dateStart.getMonth(), dateStart.getDate());
-        let cleanDateEnd = dateEnd
-            ? new Date(dateEnd.getFullYear(), dateEnd.getMonth(), dateEnd.getDate())
-            : new Date(cleanDateStart);
-        if (!dateEnd)
-            cleanDateEnd.setDate(cleanDateEnd.getDate() + 1);
 
-        return sessions.filter(session => session.date >= cleanDateStart && session.date <= cleanDateEnd);
+    function normalizeDate(date) {
+        return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    }
+
+    function filterSessionsByDates(sessions, dateStart, dateEnd) {
+        const nDateStart = normalizeDate(dateStart);
+        const nDateEnd = normalizeDate(dateEnd ? dateEnd : dateStart);
+        return sessions.filter(session => {
+            const nDate = normalizeDate(session.date);
+            return nDate >= nDateStart && nDate <= nDateEnd
+        });
     }
 
     class Game {
