@@ -4,7 +4,7 @@ A userscripts for HowLongToBeat with some QoL improvements
 ## Installation
 Go to the __Greasy Fork__ [link](https://greasyfork.org/es/scripts/583271-hltb) and click the __"Install this script"__ button.
 
-## V0.9 - XXXX-XX-XX
+## V0.9 - 2026-06-19
 ### Added
 - New __Summary__ panel added to __Journal__ page with a __date range__ selector.
 - Stats added to the __Summary__ panel (__*Games, Sessions and Time played*__).
