@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         HLTB+
 // @namespace    http://tampermonkey.net/
-// @version      0.8
+// @version      0.9
 // @description  QoL improvements for HLTB
 // @author       RunePML
 // @match        https://howlongtobeat.com/*
@@ -259,6 +259,16 @@
         );
     }
 
+    function formatDuration(seconds) {
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        return { h: hours, m: minutes, s: seconds % 60 };
+    }
+
+    function formatDate(date) {
+        return date.getDate() + '-' + (date.getMonth() + 1) + '-' + date.getFullYear();
+    }
+
     function customizeCurrentProgress(currentProgressElement) {
         editPage.currentProgress = getCurrentProgressInSeconds(currentProgressElement);
 
@@ -269,11 +279,9 @@
             if (totalSeconds <= 0)
                 return;
 
-            const hours = Math.floor(totalSeconds / 3600);
-            const minutes = Math.floor((totalSeconds % 3600) / 60);
-            const seconds = totalSeconds % 60;
             const game = createGameFromPageData();
-            showNotification('Game: ' + game.title + ' - Session duration: ' + hours + 'h&nbsp;' + minutes + 'm&nbsp;' + seconds + 's');
+            const duration = formatDuration(totalSeconds);
+            showNotification('Game: ' + game.title + ' - Session duration: ' + duration.h + 'h&nbsp;' + duration.m + 'm&nbsp;' + duration.s + 's');
 
             if (options.journalEnabled) {
                 addSession(new Session(
@@ -440,7 +448,7 @@
         optionsPanel.appendChild(title);
 
         const journalFieldset = document.createElement('fieldset');
-        journalFieldset.classList.add('options-module__S5himG__radios', 'spreadsheet');
+        journalFieldset.classList.add('options-module__S5himG__fields', 'spreadsheet');
         optionsPanel.appendChild(journalFieldset);
 
         const journalFieldsetTitle = document.createElement('h4');
@@ -537,7 +545,12 @@
 
         const calendarPanel = document.createElement('div');
         calendarPanel.classList.add('in', 'back_secondary', 'shadow_box');
+        calendarPanel.style.marginBottom = '12px';
         leftColumn.appendChild(calendarPanel);
+
+        const summaryPanel = document.createElement('div');
+        summaryPanel.classList.add('in', 'back_primary', 'shadow_box');
+        leftColumn.appendChild(summaryPanel);
 
         const rightColumn = document.createElement('div');
         rightColumn.classList.add('content_75', 'spaced');
@@ -552,12 +565,16 @@
         innerContainer.appendChild(clear);
 
         const now = new Date();
-        const journal = new Journal(journalPanel, now, loadSessions(),
+        const sessions = loadSessions();
+
+        const journal = new Journal(journalPanel, now, sessions,
             () => { calendar.moveToPrevDate(); },
             () => { calendar.moveToNextDate(); }
         );
+        const summary = new Summary(summaryPanel, now, sessions);
         const calendar = new Calendar(calendarPanel, now, newDate => {
             journal.setDate(newDate);
+            summary.setDate(newDate);
         });
     }
 
@@ -567,6 +584,20 @@
 
         journalTabContainer.remove();
         journalTabContainer = null;
+    }
+
+
+    function normalizeDate(date) {
+        return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    }
+
+    function filterSessionsByDates(sessions, dateStart, dateEnd) {
+        const nDateStart = normalizeDate(dateStart);
+        const nDateEnd = normalizeDate(dateEnd ? dateEnd : dateStart);
+        return sessions.filter(session => {
+            const nDate = normalizeDate(session.date);
+            return nDate >= nDateStart && nDate <= nDateEnd
+        });
     }
 
     class Game {
@@ -618,7 +649,10 @@
             this.datePicker = document.createElement('input');
             this.datePicker.classList.add('form_text', 'back_form');
             this.datePicker.type = 'date';
-            this.datePicker.addEventListener('change', event => this.onDateChange(new Date(this.datePicker.value)));
+            this.datePicker.addEventListener('change', event => {
+                this.date = new Date(this.datePicker.value);
+                this.onDateChange(this.date);
+            });
             this.updateDatepickerDate();
             fieldset.appendChild(this.datePicker);
         }
@@ -699,14 +733,11 @@
             entries.forEach(entry => entry.remove());
             this.container.querySelector('h4')?.remove();
 
-            let sessionsCount = 0;
-            this.sessions.forEach(session => {
-                if (session.date.getFullYear() === this.date.getFullYear() && session.date.getMonth() === this.date.getMonth() && session.date.getDate() === this.date.getDate()) {
-                    this.renderJournalEntry(session);
-                    sessionsCount++;
-                }
+            let filteredSessions = filterSessionsByDates(this.sessions, this.date);
+            filteredSessions.forEach(session => {
+                this.renderJournalEntry(session);
             });
-            if (sessionsCount === 0)
+            if (filteredSessions.length === 0)
                 this.renderNoDataMessage();
         }
 
@@ -746,7 +777,8 @@
             this.renderEntryActions(session, title);
 
             const duration = document.createElement('strong');
-            duration.innerText = this.formatDuration(session.duration);
+            const d = formatDuration(session.duration / 1000);
+            duration.innerText = d.h + 'h ' + d.m + 'm ' + d.s + 's';
             data.appendChild(duration);
 
             const timeFromTo = document.createElement('div');
@@ -774,15 +806,7 @@
 
         updateTitleText() {
             const titleText = document.querySelector('#' + ID_PREFIX + 'journal_title_text');
-            titleText.innerText = this.date.toISOString().split('T')[0] + ' Sessions';
-        }
-
-        formatDuration(duration) {
-            const totalSeconds = duration / 1000;
-            const hours = Math.floor(totalSeconds / 3600);
-            const minutes = Math.floor((totalSeconds % 3600) / 60);
-            const seconds = totalSeconds % 60;
-            return 'Duration: ' + hours + 'h ' + minutes + 'm ' + seconds + 's';
+            titleText.innerText = formatDate(this.date) + ' Sessions';
         }
 
         formatTimeFromTo(session) {
@@ -795,6 +819,218 @@
             const endTime = new Date(session.date.getTime() + session.duration);
             const end = format(endTime.getHours()) + ':' + format(endTime.getMinutes());
             return 'From ' + start + ' to ' + end;
+        }
+    }
+
+    class Summary {
+        constructor(container, date, sessions) {
+            this.container = container;
+            this.date = date;
+            this.dateStart = null;
+            this.dateEnd = null;
+            this.sessions = sessions;
+            this.range = 'day';
+            this.rangeSelector = null;
+            this.rangeDayBtn = null;
+            this.rangeWeekBtn = null;
+            this.rangeMonthBtn = null;
+            this.rangeYearBtn = null;
+            this.fromToDates = null;
+            this.gamesCount = null;
+            this.sessionsCount = null;
+            this.timeSummary = null;
+            this.ranking = null;
+            this.render();
+            this.setRange(this.range);
+        }
+
+        setDate(date) {
+            this.date = date;
+            this.updateSummary();
+        }
+
+        calculateRangeDates() {
+            switch (this.range) {
+                case 'day':
+                    this.dateStart = new Date(this.date.getFullYear(), this.date.getMonth(), this.date.getDate());
+                    this.dateEnd = this.dateStart;
+                    break;
+                case 'week':
+                    this.dateStart = new Date(this.date.getFullYear(), this.date.getMonth(), this.date.getDate());
+                    let day = this.dateStart.getDay() || 7;
+                    if (day !== 1)
+                        this.dateStart.setHours(-24 * (day - 1));
+                    this.dateEnd = new Date(this.dateStart.getFullYear(), this.dateStart.getMonth(), this.dateStart.getDate() + 6);
+                    break;
+                case 'month':
+                    this.dateStart = new Date(this.date.getFullYear(), this.date.getMonth(), 1);
+                    this.dateEnd = new Date(this.date.getFullYear(), this.date.getMonth(), new Date(this.date.getFullYear(), this.date.getMonth() + 1, 0).getDate());
+                    break;
+                case 'year':
+                    this.dateStart = new Date(this.date.getFullYear(), 0, 1);
+                    this.dateEnd = new Date(this.date.getFullYear(), 11, 31);
+                    break;
+            }
+        }
+
+        setRange(range) {
+            this.range = range;
+
+            [this.rangeDayBtn, this.rangeWeekBtn, this.rangeMonthBtn, this.rangeYearBtn].forEach(btn => {
+                if (btn.classList.contains(this.range)) {
+                    btn.classList.remove('back_secondary');
+                    btn.classList.add('back_green');
+                } else {
+                    btn.classList.remove('back_green');
+                    btn.classList.add('back_secondary');
+                }
+            });
+
+            this.updateSummary();
+        }
+
+        render() {
+            this.renderTitle();
+            this.renderRangeSelector();
+            this.renderFromToDates();
+            this.renderSummary();
+            this.renderRanking();
+        }
+
+        renderTitle() {
+            const title = document.createElement('h3');
+            title.classList.add('head_padding', 'back_orange', 'center');
+            title.innerText = 'Summary';
+            this.container.appendChild(title);
+        }
+
+        renderRangeSelector() {
+            this.rangeSelector = document.createElement('div');
+            this.rangeSelector.style.display = 'flex';
+            this.container.appendChild(this.rangeSelector);
+
+            this.rangeDayBtn = this.addRangeButton('Day', 'day');
+            this.rangeWeekBtn = this.addRangeButton('Week', 'week');
+            this.rangeMonthBtn = this.addRangeButton('Month', 'month');
+            this.rangeYearBtn = this.addRangeButton('Year', 'year');
+        }
+
+        renderFromToDates() {
+            this.fromToDates = document.createElement('h4');
+            this.fromToDates.style.padding = '4px 10px';
+            this.fromToDates.innerHTML = 'From <span class="from text_grey"></span> to <span class="to text_grey"></span>';
+            this.container.appendChild(this.fromToDates);
+        }
+
+        renderSummary() {
+            this.gamesCount = this.addField('Unique games played');
+            this.sessionsCount = this.addField('Play sessions');
+            this.timeSummary = this.addField('Time played');
+        }
+
+        renderRanking() {
+            const title = document.createElement('h4');
+            title.style.padding = '4px 0';
+            title.innerText = 'Most played games'
+            this.container.appendChild(title);
+
+            this.ranking = document.createElement('div');
+            this.ranking.style.display = 'flex';
+            this.ranking.style.justifyContent = 'space-around';
+            this.container.appendChild(this.ranking);
+        }
+
+        addRangeButton(label, range) {
+            const button = document.createElement('button');
+            button.style.flex = '1';
+            button.classList.add(range, 'form_button', 'back_secondary');
+            button.innerText = label;
+            button.addEventListener('click', () => this.setRange(range));
+            this.rangeSelector.appendChild(button);
+            return button;
+        }
+
+        addField(label) {
+            const field = document.createElement('h4');
+            field.style.padding = '4px 10px';
+            field.style.display = 'flex';
+            field.style.justifyContent = 'space-between';
+            field.innerHTML = label + ': <span class="text_grey"></span>';
+            this.container.appendChild(field);
+            return field;
+        }
+
+        updateFromToDates() {
+            if (this.range === 'day') {
+                this.fromToDates.style.display = 'none';
+                return;
+            }
+            this.fromToDates.style.display = 'block';
+
+            this.fromToDates.querySelector('.from').innerText = formatDate(this.dateStart);
+            this.fromToDates.querySelector('.to').innerText = formatDate(this.dateEnd);
+        }
+
+        updateSummary() {
+            this.calculateRangeDates();
+            this.updateFromToDates();
+
+            const filteredSessions = filterSessionsByDates(this.sessions, this.dateStart, this.dateEnd);
+            let gameIds = [];
+            let totalTime = 0;
+
+            filteredSessions.forEach(session => {
+                if (gameIds.indexOf(session.game.link) < 0)
+                    gameIds.push(session.game.link);
+                totalTime += session.duration;
+            });
+
+            this.gamesCount.querySelector('span').innerText = gameIds.length;
+            this.sessionsCount.querySelector('span').innerText = filteredSessions.length;
+            const d = formatDuration(totalTime / 1000);
+            this.timeSummary.querySelector('span').innerText = d.h + 'h ' + d.m + 'm ' + d.s + 's';
+
+            this.updateRanking(filteredSessions);
+        }
+
+        updateRanking(filteredSessions) {
+            this.ranking.innerHTML = '';
+
+            const gamesRank = [];
+
+            filteredSessions.forEach(session => {
+                let gameRank = gamesRank.filter(g => g.game.link === session.game.link)[0];
+                if (!gameRank)
+                    gamesRank.push({ game: session.game, time: session.duration });
+                else
+                    gameRank.time += session.duration;
+            });
+
+            gamesRank.sort((a, b) => b.time - a.time);
+
+            const rankingSize = 3;
+            for (let i = 0; i < gamesRank.length && i < rankingSize; i++) {
+                const gameRank = gamesRank[i];
+
+                const rank = document.createElement('a');
+                rank.style.display = 'flex';
+                rank.style.flexDirection = 'column';
+                rank.style.alignItems = 'center';
+                rank.href = '/submit/edit/' + gameRank.game.link;
+                rank.title = gameRank.game.title;
+                this.ranking.appendChild(rank);
+
+                const image = document.createElement('img');
+                image.width = 66;
+                image.src = '/games/' + gameRank.game.image;
+                image.style.borderRadius = '3px';
+                rank.appendChild(image);
+
+                const time = document.createElement('span');
+                const t = formatDuration(gameRank.time / 1000);
+                time.innerText = t.h + 'h ' + t.m + 'm ' + t.s + 's'
+                rank.appendChild(time);
+            }
         }
     }
 })();
