@@ -707,10 +707,49 @@
                 exportJournal
             ));
 
-            actions.appendChild(this.createAction(
+            const openImportActions = () => {
+                const importActions = document.getElementById(ID_PREFIX + 'import_actions');
+                importActions.style.display = 'flex';
+            }
+
+            const closeImportActions = () => {
+                const importActions = document.getElementById(ID_PREFIX + 'import_actions');
+                importActions.style.display = 'none';
+            }
+
+            const importBtn = this.createAction(
                 'back_blue',
                 'Import',
                 'Import Journal data from a file',
+                () => openImportActions()
+            )
+            importBtn.addEventListener('blur', () => { setTimeout(() => closeImportActions(), 500) });
+            importBtn.style.position = 'relative';
+            actions.appendChild(importBtn);
+
+            const importActions = document.createElement('div');
+            importActions.id = ID_PREFIX + 'import_actions';
+            importActions.classList.add('back_primary', 'shadow_box');
+            importActions.style.position = 'absolute';
+            importActions.style.zIndex = 1;
+            importActions.style.left = 0;
+            importActions.style.padding = '4px';
+            importActions.style.top = '32px';
+            importActions.style.display = 'none';
+            importActions.style.flexDirection = 'column';
+            importBtn.appendChild(importActions);
+
+            importActions.appendChild(this.createAction(
+                'back_blue',
+                'Overwrite',
+                'The existing Journal data will be replaced by the imported entries',
+                () => importJournal('overwrite')
+            ));
+
+            importActions.appendChild(this.createAction(
+                'back_blue',
+                'Merge',
+                'The existing Journal data will be merged with the new imported entries',
                 () => importJournal('merge')
             ));
 
