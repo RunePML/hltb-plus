@@ -465,7 +465,17 @@
                     showNotification('Journal data has been imported successfully, reload to see changes.');
                     break;
                 case 'merge':
-                    // TODO: Implement 'merge' import
+                    const sessions = loadSessions();
+                    const mergedSessions = loadSessions();
+                    let newEntries = 0;
+                    journal.forEach(entry => {
+                        if (!sessions.find(s => s.game.link === entry.game.link && s.date.getTime() === entry.date.getTime())) {
+                            mergedSessions.push(entry);
+                            newEntries++;
+                        }
+                    });
+                    saveSessions(mergedSessions);
+                    showNotification(newEntries + ' new entries added to the Journal');
                     break;
             }
         } catch (error) {
@@ -701,7 +711,7 @@
                 'back_blue',
                 'Import',
                 'Import Journal data from a file',
-                () => importJournal('overwrite')
+                () => importJournal('merge')
             ));
 
             actions.appendChild(this.createAction(
