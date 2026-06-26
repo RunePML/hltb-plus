@@ -432,6 +432,21 @@
         saveSessions(sessions);
     }
 
+    function exportJournal() {
+        // TODO: Implement exportJournal()
+        console.error('exportJournal() not yet implemented');
+    }
+
+    function importJournal() {
+        // TODO: Implement importJournal()
+        console.error('importJournal() not yet implemented');
+    }
+
+    function syncJournal() {
+        // TODO: Implement syncJournal()
+        console.error('syncJournal() not yet implemented');
+    }
+
     function createOptionsPanel(container) {
         if (!container) {
             console.error('createOptionsPanel(): No container provided');
@@ -627,6 +642,7 @@
 
         render() {
             this.renderTitle();
+            this.renderActions();
             this.renderDatePicker();
         }
 
@@ -635,6 +651,34 @@
             title.classList.add('head_padding', 'back_primary', 'center');
             title.innerText = 'Calendar';
             this.container.appendChild(title);
+        }
+
+        renderActions() {
+            const actions = document.createElement('div');
+            actions.style.display = 'flex';
+            actions.style.justifyContent = 'space-evenly';
+            this.container.appendChild(actions);
+
+            actions.appendChild(this.createAction(
+                'back_green',
+                'Export',
+                'Export Journal data to a file',
+                exportJournal
+            ));
+
+            actions.appendChild(this.createAction(
+                'back_blue',
+                'Import',
+                'Import Journal data from a file',
+                importJournal
+            ));
+
+            actions.appendChild(this.createAction(
+                'back_purple',
+                'Sync',
+                'Synchronize the Journal data in this browser with other browsers to have an unified log',
+                syncJournal
+            ));
         }
 
         renderDatePicker() {
@@ -655,6 +699,16 @@
             });
             this.updateDatepickerDate();
             fieldset.appendChild(this.datePicker);
+        }
+
+        createAction(colorClass, label, title, onClick) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.classList.add('form_button', colorClass);
+            button.innerText = label;
+            button.title = title;
+            button.addEventListener('click', () => onClick());
+            return button;
         }
 
         updateDatepickerDate(date) {
