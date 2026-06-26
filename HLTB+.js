@@ -439,9 +439,38 @@
         showNotification('Journal data has been exported to journal.json');
     }
 
-    function importJournal() {
-        // TODO: Implement importJournal()
-        console.error('importJournal() not yet implemented');
+    async function importJournal(importMode) {
+        const [file] = await showOpenFilePicker({
+            types: [{
+                description: 'Journal data file',
+                accept: { 'text/json': ['.json'] },
+            }],
+            multiple: false,
+            startIn: 'downloads',
+            excludeAcceptAllOption: true,
+        });
+
+        const data = await file.getFile();
+        const text = await data.text();
+        try {
+            const journal = JSON.parse(text).map(entry => new Session(
+                entry.game,
+                new Date(entry.date),
+                entry.duration
+            ));
+
+            switch (importMode) {
+                case 'overwrite':
+                    saveSessions(journal);
+                    showNotification('Journal data has been imported successfully, reload to see changes.');
+                    break;
+                case 'merge':
+                    // TODO: Implement 'merge' import
+                    break;
+            }
+        } catch (error) {
+            showNotification('File is invalid or data is corrupt');
+        }
     }
 
     function syncJournal() {
@@ -672,7 +701,7 @@
                 'back_blue',
                 'Import',
                 'Import Journal data from a file',
-                importJournal
+                () => importJournal('overwrite')
             ));
 
             actions.appendChild(this.createAction(
