@@ -293,6 +293,16 @@
         });
     }
 
+    function saveFile(fileName, data, type) {
+        const blob = new Blob([data], { type: type });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = fileName;
+        link.click();
+        URL.revokeObjectURL(url);
+    }
+
     function exportGamesList() {
         waitForElement('select[aria-label="View Options"]', viewOptions => {
             viewOptions.value = 'list';
@@ -341,15 +351,7 @@
                     csv += '\n';
                 });
 
-                const blob = new Blob([csv], { type: "text/csv" });
-                const url = URL.createObjectURL(blob);
-
-                const link = document.createElement("a");
-                link.href = url;
-                link.download = 'games-' + currentPage[3] + '.csv';
-                link.click();
-
-                URL.revokeObjectURL(url);
+                saveFile('games-' + currentPage[3] + '.csv', csv, 'text/csv');
             }, 20);
         }, 20);
     }
@@ -433,8 +435,8 @@
     }
 
     function exportJournal() {
-        // TODO: Implement exportJournal()
-        console.error('exportJournal() not yet implemented');
+        saveFile('journal.json', JSON.stringify(loadSessions()), 'text/json');
+        showNotification('Journal data has been exported to journal.json');
     }
 
     function importJournal() {
