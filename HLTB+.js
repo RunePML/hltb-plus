@@ -186,6 +186,16 @@
         });
     }
 
+    function isUserLoggedIn() {
+        return document.querySelectorAll('[class*="UserTools"]').length !== null;
+    }
+
+    function getUsername() {
+        return isUserLoggedIn()
+            ? document.querySelector('.label[class*="UserTools"]').innerText
+            : null;
+    }
+
     function setMainBackgroundColor(color) {
         const pageMain = document.querySelector('main');
         if (pageMain) {
@@ -249,12 +259,15 @@
         return (hours * 3600) + (minutes * 60) + seconds;
     }
 
-    function createGameFromPageData() {
-        const linkParts = window.location.href.split('/');
-        const imgParts = document.querySelector('#tool_community img').src.split('/');
+    function createGameFromPageData(doc, gameLink) {
+        const linkParts = gameLink ? '' : window.location.href.split('/');
+        const imgParts = doc.querySelector('#tool_community img').src.split('/');
+        const title = doc.querySelector('input[name="title"]')
+            ? doc.querySelector('input[name="title"]').value
+            : doc.querySelector('meta[property="og:title"]').content.split(' - ')[0];
         return new Game(
-            document.querySelector('input[name="title"]').value,
-            linkParts[linkParts.length - 1],
+            title,
+            gameLink ? gameLink : linkParts[linkParts.length - 1],
             imgParts[imgParts.length - 1].split('?')[0]
         );
     }
@@ -279,7 +292,7 @@
             if (totalSeconds <= 0)
                 return;
 
-            const game = createGameFromPageData();
+            const game = createGameFromPageData(document, null);
             const duration = formatDuration(totalSeconds);
             showNotification('Game: ' + game.title + ' - Session duration: ' + duration.h + 'h&nbsp;' + duration.m + 'm&nbsp;' + duration.s + 's');
 
@@ -403,15 +416,39 @@
         localStorage.setItem(ID_PREFIX + 'games', JSON.stringify(games));
     }
 
-    function loadSessions() {
+    async function findGame(gameLink) {
+        const game = loadGames().find(game => game.link === gameLink)
+        if (game)
+            return game;
+
+        const response = await fetch('https://howlongtobeat.com/submit/edit/' + gameLink);
+        const html = await response.text();
+        const domParser = new DOMParser();
+        const doc = domParser.parseFromString(html, 'text/html');
+        return createGameFromPageData(doc, gameLink);
+    }
+
+    function compressSessions(sessions) {
+        return sessions.map(session => new Session(session.game.link, session.date.getTime(), session.duration));
+    }
+
+    async function decompressSessions(sessions) {
+        return await Promise.all(
+            sessions.map(async (session) => {
+                const game = await findGame(session.game);
+                return new Session(
+                    game,
+                    new Date(session.date),
+                    session.duration
+                )
+            })
+        );
+    }
+
+    async function loadSessions() {
         const sessionsRaw = localStorage.getItem(ID_PREFIX + 'sessions');
         const sessions = sessionsRaw ? JSON.parse(sessionsRaw) : [];
-        return sessions.map(
-            session => new Session(
-                loadGames().find(game => game.link === session.game),
-                new Date(session.date),
-                session.duration)
-        );
+        return await decompressSessions(sessions);
     }
 
     function saveSessions(sessions) {
@@ -424,19 +461,22 @@
 
         localStorage.setItem(
             ID_PREFIX + 'sessions',
-            JSON.stringify(sessions.map(session => new Session(session.game.link, session.date.getTime(), session.duration)))
+            JSON.stringify(compressSessions(sessions))
         );
     }
 
-    function addSession(session) {
-        const sessions = loadSessions();
-        sessions.push(session);
-        saveSessions(sessions);
+    async function addSession(session) {
+        loadSessions().then(sessions => {
+            sessions.push(session);
+            saveSessions(sessions);
+        });
     }
 
-    function exportJournal() {
-        saveFile('journal.json', JSON.stringify(loadSessions()), 'text/json');
-        showNotification('Journal data has been exported to journal.json');
+    async function exportJournal() {
+        loadSessions().then(sessions => {
+            saveFile('journal.json', JSON.stringify(sessions), 'text/json');
+            showNotification('Journal data has been exported to journal.json');
+        });
     }
 
     async function importJournal(importMode) {
@@ -465,16 +505,7 @@
                     showNotification('Journal data has been imported successfully, reload to see changes.');
                     break;
                 case 'merge':
-                    const sessions = loadSessions();
-                    const mergedSessions = loadSessions();
-                    let newEntries = 0;
-                    journal.forEach(entry => {
-                        if (!sessions.find(s => s.game.link === entry.game.link && s.date.getTime() === entry.date.getTime())) {
-                            mergedSessions.push(entry);
-                            newEntries++;
-                        }
-                    });
-                    saveSessions(mergedSessions);
+                    const newEntries = await mergeJournals(journal);
                     showNotification(newEntries + ' new entries added to the Journal');
                     break;
             }
@@ -483,9 +514,73 @@
         }
     }
 
-    function syncJournal() {
-        // TODO: Implement syncJournal()
-        console.error('syncJournal() not yet implemented');
+    async function mergeJournals(journalToMerge) {
+        const sessions = await loadSessions();
+        const mergedSessions = await loadSessions();
+        let newEntries = 0;
+        journalToMerge.forEach(entry => {
+            if (!sessions.find(s => s.game.link === entry.game.link && s.date.getTime() === entry.date.getTime())) {
+                mergedSessions.push(entry);
+                newEntries++;
+            }
+        });
+        saveSessions(mergedSessions);
+        return newEntries;
+    }
+
+    async function syncJournal() {
+        showNotification('Syncing Journal data...');
+        fetchSyncJournalData(async (sessions) => {
+            if (sessions) {
+                const decompressedSessions = await decompressSessions(sessions);
+                const newEntries = await mergeJournals(decompressedSessions);
+                showNotification(newEntries + ' new entries added to the Journal');
+            }
+            loadSessions().then(loadedSessions => pushSyncJournalData(loadedSessions, () => {
+                showNotification('Journal data synchronized successfully');
+            }));
+        });
+    }
+
+    function fetchSyncJournalData(onFetch) {
+        const user = getUsername();
+        const url = 'https://howlongtobeat.com/user/' + user + '/pm/' + user;
+        fetch(url, { method: 'GET' })
+            .then(response => response.text())
+            .then(data => {
+                const startSearchString = '<script id="__NEXT_DATA__" type="application/json">';
+                const jsonStart = data.indexOf(startSearchString);
+                const jsonEnd = data.indexOf('</script>', jsonStart);
+                const parsedJson = JSON.parse(data.substring(jsonStart + startSearchString.length, jsonEnd));
+                const messages = parsedJson.props.pageProps.userPMs;
+                if (messages.length == 0) {
+                    onFetch(null);
+                    return;
+                }
+                // It is assumed that there is only one PM containing the data
+                const journalData = JSON.parse(messages[0].pm_message).journal;
+                onFetch(journalData);
+            });
+    }
+
+    function pushSyncJournalData(sessions, onPush) {
+        // First delete existing data
+        fetch('https://howlongtobeat.com/api/user/pm/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json;charset=utf-8' },
+            body: JSON.stringify({ conversationWith: getUsername() })
+        }).then(() => {
+            fetch('https://howlongtobeat.com/api/user/pm/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json;charset=utf-8' },
+                body: JSON.stringify({
+                    conversationWith: getUsername(),
+                    message: JSON.stringify({
+                        journal: compressSessions(sessions)
+                    })
+                })
+            }).then(() => onPush());
+        });
     }
 
     function createOptionsPanel(container) {
@@ -620,17 +715,17 @@
         clear.classList.add('clear');
         innerContainer.appendChild(clear);
 
-        const now = new Date();
-        const sessions = loadSessions();
-
-        const journal = new Journal(journalPanel, now, sessions,
-            () => { calendar.moveToPrevDate(); },
-            () => { calendar.moveToNextDate(); }
-        );
-        const summary = new Summary(summaryPanel, now, sessions);
-        const calendar = new Calendar(calendarPanel, now, newDate => {
-            journal.setDate(newDate);
-            summary.setDate(newDate);
+        loadSessions().then(sessions => {
+            const now = new Date();
+            const journal = new Journal(journalPanel, now, sessions,
+                () => { calendar.moveToPrevDate(); },
+                () => { calendar.moveToNextDate(); }
+            );
+            const summary = new Summary(summaryPanel, now, sessions);
+            const calendar = new Calendar(calendarPanel, now, newDate => {
+                journal.setDate(newDate);
+                summary.setDate(newDate);
+            });
         });
     }
 
