@@ -1,12 +1,14 @@
 // ==UserScript==
 // @name         HLTB+
 // @namespace    http://tampermonkey.net/
-// @version      0.9
+// @version      0.9.1
 // @description  QoL improvements for HLTB
 // @author       RunePML
 // @match        https://howlongtobeat.com/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=howlongtobeat.com
 // @grant        none
+// @downloadURL https://update.greasyfork.org/scripts/583271/HLTB%2B.user.js
+// @updateURL https://update.greasyfork.org/scripts/583271/HLTB%2B.meta.js
 // ==/UserScript==
 
 (function () {
@@ -261,14 +263,15 @@
 
     function createGameFromPageData(doc, gameLink) {
         const linkParts = gameLink ? '' : window.location.href.split('/');
-        const imgParts = doc.querySelector('#tool_community img').src.split('/');
+        const imageElement = doc.querySelector('#tool_community img');
+        const imgParts = imageElement ? imageElement.src.split('/') : [];
         const title = doc.querySelector('input[name="title"]')
             ? doc.querySelector('input[name="title"]').value
             : doc.querySelector('meta[property="og:title"]').content.split(' - ')[0];
         return new Game(
             title,
             gameLink ? gameLink : linkParts[linkParts.length - 1],
-            imgParts[imgParts.length - 1].split('?')[0]
+            imgParts.length > 0 ? imgParts[imgParts.length - 1].split('?')[0] : ''
         );
     }
 
