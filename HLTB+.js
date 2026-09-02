@@ -406,6 +406,10 @@
         notification.innerHTML = notificationText;
         notification.addEventListener('click', () => {
             notification.remove();
+            if (notificationsContainer.childNodes.length === 0) {
+                notificationsContainer.remove();
+                notificationsContainer = null;
+            }
         });
         notificationsContainer.appendChild(notification);
     }
