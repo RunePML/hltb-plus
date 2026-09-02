@@ -469,14 +469,42 @@
     }
 
     async function addSession(session) {
-        loadSessions().then(sessions => {
+        await loadSessions().then(sessions => {
             sessions.push(session);
             saveSessions(sessions);
         });
     }
 
+    function loadSessionsToRemove() {
+        const toRemove = localStorage.getItem(ID_PREFIX + 'sessions-to-remove');
+        return toRemove ? JSON.parse(toRemove) : [];
+    }
+
+    function saveSessionsToRemove(toRemove) {
+        localStorage.setItem(
+            ID_PREFIX + 'sessions-to-remove',
+            JSON.stringify(toRemove)
+        );
+    }
+
+    async function removeSession(session) {
+        let sessionRemoved = false;
+        await loadSessions().then(sessions => {
+            const index = sessions.findIndex(s => s.game.link === session.game.link && s.date.getTime() === session.date.getTime());
+            if (index !== -1) {
+                sessions.splice(index, 1);
+                saveSessions(sessions);
+                const toRemove = loadSessionsToRemove();
+                toRemove.push({ link: session.game.link, date: session.date.getTime() });
+                saveSessionsToRemove(toRemove);
+                sessionRemoved = true;
+            }
+        });
+        return sessionRemoved;
+    }
+
     async function exportJournal() {
-        loadSessions().then(sessions => {
+        await loadSessions().then(sessions => {
             saveFile('journal.json', JSON.stringify(sessions), 'text/json');
             showNotification('Journal data has been exported to journal.json');
         });
@@ -533,11 +561,27 @@
 
     async function syncJournal() {
         showNotification('Syncing Journal data...');
-        fetchSyncJournalData(async (sessions) => {
+        fetchSyncJournalData(async (sessions, sessionsToRemove) => {
             if (sessions) {
                 const decompressedSessions = await decompressSessions(sessions);
                 const newEntries = await mergeJournals(decompressedSessions);
-                showNotification(newEntries + ' new entries added to the Journal');
+                if (newEntries > 0)
+                    showNotification(newEntries + ' new entries added to the Journal');
+            }
+            if (sessionsToRemove && sessionsToRemove.length > 0) {
+                let removedEntries = 0;
+                sessionsToRemove.forEach(async toRemove => {
+                    const removed = await removeSession(new Session(
+                        new Game('', toRemove.link, null),
+                        new Date(toRemove.date),
+                        0
+                    ));
+                    if (removed)
+                        removedEntries++;
+                });
+                saveSessionsToRemove([]);
+                if (removedEntries > 0)
+                    showNotification(removedEntries + ' entries removed from the Journal');
             }
             loadSessions().then(loadedSessions => pushSyncJournalData(loadedSessions, () => {
                 showNotification('Journal data synchronized successfully');
@@ -555,14 +599,14 @@
                 const jsonStart = data.indexOf(startSearchString);
                 const jsonEnd = data.indexOf('</script>', jsonStart);
                 const parsedJson = JSON.parse(data.substring(jsonStart + startSearchString.length, jsonEnd));
-                const messages = parsedJson.props.pageProps.userPMs;
-                if (messages.length == 0) {
+                const pms = parsedJson.props.pageProps.userPMs;
+                if (pms.length == 0) {
                     onFetch(null);
                     return;
                 }
                 // It is assumed that there is only one PM containing the data
-                const journalData = JSON.parse(messages[0].pm_message).journal;
-                onFetch(journalData);
+                const pm = JSON.parse(pms[0].pm_message);
+                onFetch(pm.journal, pm.sessionsToRemove);
             });
     }
 
@@ -579,7 +623,8 @@
                 body: JSON.stringify({
                     conversationWith: getUsername(),
                     message: JSON.stringify({
-                        journal: compressSessions(sessions)
+                        journal: compressSessions(sessions),
+                        sessionsToRemove: loadSessionsToRemove()
                     })
                 })
             }).then(() => onPush());
@@ -718,18 +763,22 @@
         clear.classList.add('clear');
         innerContainer.appendChild(clear);
 
-        loadSessions().then(sessions => {
-            const now = new Date();
-            const journal = new Journal(journalPanel, now, sessions,
-                () => { calendar.moveToPrevDate(); },
-                () => { calendar.moveToNextDate(); }
-            );
-            const summary = new Summary(summaryPanel, now, sessions);
-            const calendar = new Calendar(calendarPanel, now, newDate => {
+        const now = new Date();
+        const journal = new Journal(
+            journalPanel,
+            now,
+            () => { calendar.moveToPrevDate(); },
+            () => { calendar.moveToNextDate(); }
+        );
+        const summary = new Summary(summaryPanel, now);
+        const calendar = new Calendar(
+            calendarPanel,
+            now,
+            newDate => {
                 journal.setDate(newDate);
                 summary.setDate(newDate);
-            });
-        });
+            }
+        );
     }
 
     function removeJournalTabContainer() {
@@ -906,10 +955,9 @@
     }
 
     class Journal {
-        constructor(container, date, sessions, onPrevDateCb, onNextDateCb) {
+        constructor(container, date, onPrevDateCb, onNextDateCb) {
             this.container = container;
             this.date = date;
-            this.sessions = sessions;
             this.onPrevDateCb = onPrevDateCb;
             this.onNextDateCb = onNextDateCb;
             this.render();
@@ -921,14 +969,10 @@
             this.renderEntries();
         }
 
-        deleteJournalEntry(session) {
+        async deleteJournalEntry(session) {
             if (confirm('Are you sure you want to delete this journal entry?')) {
-                const index = this.sessions.findIndex(s => s.game.link === session.game.link && s.date.getTime() === session.date.getTime());
-                if (index !== -1) {
-                    this.sessions.splice(index, 1);
-                    saveSessions(this.sessions);
-                    this.renderEntries();
-                }
+                await removeSession(session);
+                this.renderEntries();
             }
         }
 
@@ -961,16 +1005,18 @@
         }
 
         renderEntries() {
-            const entries = this.container.querySelectorAll('.' + ID_PREFIX + 'journal_entry');
-            entries.forEach(entry => entry.remove());
-            this.container.querySelector('h4')?.remove();
+            loadSessions().then(sessions => {
+                const entries = this.container.querySelectorAll('.' + ID_PREFIX + 'journal_entry');
+                entries.forEach(entry => entry.remove());
+                this.container.querySelector('h4')?.remove();
 
-            let filteredSessions = filterSessionsByDates(this.sessions, this.date);
-            filteredSessions.forEach(session => {
-                this.renderJournalEntry(session);
+                let filteredSessions = filterSessionsByDates(sessions, this.date);
+                filteredSessions.forEach(session => {
+                    this.renderJournalEntry(session);
+                });
+                if (filteredSessions.length === 0)
+                    this.renderNoDataMessage();
             });
-            if (filteredSessions.length === 0)
-                this.renderNoDataMessage();
         }
 
         renderNoDataMessage() {
@@ -1055,12 +1101,11 @@
     }
 
     class Summary {
-        constructor(container, date, sessions) {
+        constructor(container, date) {
             this.container = container;
             this.date = date;
             this.dateStart = null;
             this.dateEnd = null;
-            this.sessions = sessions;
             this.range = 'day';
             this.rangeSelector = null;
             this.rangeDayBtn = null;
@@ -1204,25 +1249,27 @@
         }
 
         updateSummary() {
-            this.calculateRangeDates();
-            this.updateFromToDates();
+            loadSessions().then(sessions => {
+                this.calculateRangeDates();
+                this.updateFromToDates();
 
-            const filteredSessions = filterSessionsByDates(this.sessions, this.dateStart, this.dateEnd);
-            let gameIds = [];
-            let totalTime = 0;
+                const filteredSessions = filterSessionsByDates(sessions, this.dateStart, this.dateEnd);
+                let gameIds = [];
+                let totalTime = 0;
 
-            filteredSessions.forEach(session => {
-                if (gameIds.indexOf(session.game.link) < 0)
-                    gameIds.push(session.game.link);
-                totalTime += session.duration;
+                filteredSessions.forEach(session => {
+                    if (gameIds.indexOf(session.game.link) < 0)
+                        gameIds.push(session.game.link);
+                    totalTime += session.duration;
+                });
+
+                this.gamesCount.querySelector('span').innerText = gameIds.length;
+                this.sessionsCount.querySelector('span').innerText = filteredSessions.length;
+                const d = formatDuration(totalTime / 1000);
+                this.timeSummary.querySelector('span').innerText = d.h + 'h ' + d.m + 'm ' + d.s + 's';
+
+                this.updateRanking(filteredSessions);
             });
-
-            this.gamesCount.querySelector('span').innerText = gameIds.length;
-            this.sessionsCount.querySelector('span').innerText = filteredSessions.length;
-            const d = formatDuration(totalTime / 1000);
-            this.timeSummary.querySelector('span').innerText = d.h + 'h ' + d.m + 'm ' + d.s + 's';
-
-            this.updateRanking(filteredSessions);
         }
 
         updateRanking(filteredSessions) {
