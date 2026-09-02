@@ -1,12 +1,14 @@
 // ==UserScript==
 // @name         HLTB+
 // @namespace    http://tampermonkey.net/
-// @version      0.9
+// @version      0.9.1
 // @description  QoL improvements for HLTB
 // @author       RunePML
 // @match        https://howlongtobeat.com/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=howlongtobeat.com
 // @grant        none
+// @downloadURL https://update.greasyfork.org/scripts/583271/HLTB%2B.user.js
+// @updateURL https://update.greasyfork.org/scripts/583271/HLTB%2B.meta.js
 // ==/UserScript==
 
 (function () {
@@ -186,6 +188,16 @@
         });
     }
 
+    function isUserLoggedIn() {
+        return document.querySelectorAll('[class*="UserTools"]').length !== null;
+    }
+
+    function getUsername() {
+        return isUserLoggedIn()
+            ? document.querySelector('.label[class*="UserTools"]').innerText
+            : null;
+    }
+
     function setMainBackgroundColor(color) {
         const pageMain = document.querySelector('main');
         if (pageMain) {
@@ -249,13 +261,17 @@
         return (hours * 3600) + (minutes * 60) + seconds;
     }
 
-    function createGameFromPageData() {
-        const linkParts = window.location.href.split('/');
-        const imgParts = document.querySelector('#tool_community img').src.split('/');
+    function createGameFromPageData(doc, gameLink) {
+        const linkParts = gameLink ? '' : window.location.href.split('/');
+        const imageElement = doc.querySelector('#tool_community img');
+        const imgParts = imageElement ? imageElement.src.split('/') : [];
+        const title = doc.querySelector('input[name="title"]')
+            ? doc.querySelector('input[name="title"]').value
+            : doc.querySelector('meta[property="og:title"]').content.split(' - ')[0];
         return new Game(
-            document.querySelector('input[name="title"]').value,
-            linkParts[linkParts.length - 1],
-            imgParts[imgParts.length - 1].split('?')[0]
+            title,
+            gameLink ? gameLink : linkParts[linkParts.length - 1],
+            imgParts.length > 0 ? imgParts[imgParts.length - 1].split('?')[0] : ''
         );
     }
 
@@ -279,7 +295,7 @@
             if (totalSeconds <= 0)
                 return;
 
-            const game = createGameFromPageData();
+            const game = createGameFromPageData(document, null);
             const duration = formatDuration(totalSeconds);
             showNotification('Game: ' + game.title + ' - Session duration: ' + duration.h + 'h&nbsp;' + duration.m + 'm&nbsp;' + duration.s + 's');
 
@@ -291,6 +307,16 @@
                 ));
             }
         });
+    }
+
+    function saveFile(fileName, data, type) {
+        const blob = new Blob([data], { type: type });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = fileName;
+        link.click();
+        URL.revokeObjectURL(url);
     }
 
     function exportGamesList() {
@@ -341,15 +367,7 @@
                     csv += '\n';
                 });
 
-                const blob = new Blob([csv], { type: "text/csv" });
-                const url = URL.createObjectURL(blob);
-
-                const link = document.createElement("a");
-                link.href = url;
-                link.download = 'games-' + currentPage[3] + '.csv';
-                link.click();
-
-                URL.revokeObjectURL(url);
+                saveFile('games-' + currentPage[3] + '.csv', csv, 'text/csv');
             }, 20);
         }, 20);
     }
@@ -401,15 +419,39 @@
         localStorage.setItem(ID_PREFIX + 'games', JSON.stringify(games));
     }
 
-    function loadSessions() {
+    async function findGame(gameLink) {
+        const game = loadGames().find(game => game.link === gameLink)
+        if (game)
+            return game;
+
+        const response = await fetch('https://howlongtobeat.com/submit/edit/' + gameLink);
+        const html = await response.text();
+        const domParser = new DOMParser();
+        const doc = domParser.parseFromString(html, 'text/html');
+        return createGameFromPageData(doc, gameLink);
+    }
+
+    function compressSessions(sessions) {
+        return sessions.map(session => new Session(session.game.link, session.date.getTime(), session.duration));
+    }
+
+    async function decompressSessions(sessions) {
+        return await Promise.all(
+            sessions.map(async (session) => {
+                const game = await findGame(session.game);
+                return new Session(
+                    game,
+                    new Date(session.date),
+                    session.duration
+                )
+            })
+        );
+    }
+
+    async function loadSessions() {
         const sessionsRaw = localStorage.getItem(ID_PREFIX + 'sessions');
         const sessions = sessionsRaw ? JSON.parse(sessionsRaw) : [];
-        return sessions.map(
-            session => new Session(
-                loadGames().find(game => game.link === session.game),
-                new Date(session.date),
-                session.duration)
-        );
+        return await decompressSessions(sessions);
     }
 
     function saveSessions(sessions) {
@@ -422,14 +464,171 @@
 
         localStorage.setItem(
             ID_PREFIX + 'sessions',
-            JSON.stringify(sessions.map(session => new Session(session.game.link, session.date.getTime(), session.duration)))
+            JSON.stringify(compressSessions(sessions))
         );
     }
 
-    function addSession(session) {
-        const sessions = loadSessions();
-        sessions.push(session);
-        saveSessions(sessions);
+    async function addSession(session) {
+        await loadSessions().then(sessions => {
+            sessions.push(session);
+            saveSessions(sessions);
+        });
+    }
+
+    function loadSessionsToRemove() {
+        const toRemove = localStorage.getItem(ID_PREFIX + 'sessions-to-remove');
+        return toRemove ? JSON.parse(toRemove) : [];
+    }
+
+    function saveSessionsToRemove(toRemove) {
+        localStorage.setItem(
+            ID_PREFIX + 'sessions-to-remove',
+            JSON.stringify(toRemove)
+        );
+    }
+
+    async function removeSession(session) {
+        let sessionRemoved = false;
+        await loadSessions().then(sessions => {
+            const index = sessions.findIndex(s => s.game.link === session.game.link && s.date.getTime() === session.date.getTime());
+            if (index !== -1) {
+                sessions.splice(index, 1);
+                saveSessions(sessions);
+                const toRemove = loadSessionsToRemove();
+                toRemove.push({ link: session.game.link, date: session.date.getTime() });
+                saveSessionsToRemove(toRemove);
+                sessionRemoved = true;
+            }
+        });
+        return sessionRemoved;
+    }
+
+    async function exportJournal() {
+        await loadSessions().then(sessions => {
+            saveFile('journal.json', JSON.stringify(sessions), 'text/json');
+            showNotification('Journal data has been exported to journal.json');
+        });
+    }
+
+    async function importJournal(importMode) {
+        const [file] = await showOpenFilePicker({
+            types: [{
+                description: 'Journal data file',
+                accept: { 'text/json': ['.json'] },
+            }],
+            multiple: false,
+            startIn: 'downloads',
+            excludeAcceptAllOption: true,
+        });
+
+        const data = await file.getFile();
+        const text = await data.text();
+        try {
+            const journal = JSON.parse(text).map(entry => new Session(
+                entry.game,
+                new Date(entry.date),
+                entry.duration
+            ));
+
+            switch (importMode) {
+                case 'overwrite':
+                    saveSessions(journal);
+                    showNotification('Journal data has been imported successfully, reload to see changes.');
+                    break;
+                case 'merge':
+                    const newEntries = await mergeJournals(journal);
+                    showNotification(newEntries + ' new entries added to the Journal');
+                    break;
+            }
+        } catch (error) {
+            showNotification('File is invalid or data is corrupt');
+        }
+    }
+
+    async function mergeJournals(journalToMerge) {
+        const sessions = await loadSessions();
+        const mergedSessions = await loadSessions();
+        let newEntries = 0;
+        journalToMerge.forEach(entry => {
+            if (!sessions.find(s => s.game.link === entry.game.link && s.date.getTime() === entry.date.getTime())) {
+                mergedSessions.push(entry);
+                newEntries++;
+            }
+        });
+        saveSessions(mergedSessions);
+        return newEntries;
+    }
+
+    async function syncJournal() {
+        showNotification('Syncing Journal data...');
+        fetchSyncJournalData(async (sessions, sessionsToRemove) => {
+            if (sessions) {
+                const decompressedSessions = await decompressSessions(sessions);
+                const newEntries = await mergeJournals(decompressedSessions);
+                if (newEntries > 0)
+                    showNotification(newEntries + ' new entries added to the Journal');
+            }
+            if (sessionsToRemove && sessionsToRemove.length > 0) {
+                let removedEntries = 0;
+                sessionsToRemove.forEach(async toRemove => {
+                    const removed = await removeSession(new Session(
+                        new Game('', toRemove.link, null),
+                        new Date(toRemove.date),
+                        0
+                    ));
+                    if (removed)
+                        removedEntries++;
+                });
+                saveSessionsToRemove([]);
+                if (removedEntries > 0)
+                    showNotification(removedEntries + ' entries removed from the Journal');
+            }
+            loadSessions().then(loadedSessions => pushSyncJournalData(loadedSessions, () => {
+                showNotification('Journal data synchronized successfully');
+            }));
+        });
+    }
+
+    function fetchSyncJournalData(onFetch) {
+        const user = getUsername();
+        const url = 'https://howlongtobeat.com/user/' + user + '/pm/' + user;
+        fetch(url, { method: 'GET' })
+            .then(response => response.text())
+            .then(data => {
+                const startSearchString = '<script id="__NEXT_DATA__" type="application/json">';
+                const jsonStart = data.indexOf(startSearchString);
+                const jsonEnd = data.indexOf('</script>', jsonStart);
+                const parsedJson = JSON.parse(data.substring(jsonStart + startSearchString.length, jsonEnd));
+                const pms = parsedJson.props.pageProps.userPMs;
+                if (pms.length == 0) {
+                    onFetch(null);
+                    return;
+                }
+                // It is assumed that there is only one PM containing the data
+                const pm = JSON.parse(pms[0].pm_message);
+                onFetch(pm.journal, pm.sessionsToRemove);
+            });
+    }
+
+    function pushSyncJournalData(sessions, onPush) {
+        // First delete existing data
+        fetch('https://howlongtobeat.com/api/user/pm/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json;charset=utf-8' },
+            body: JSON.stringify({ conversationWith: getUsername() })
+        }).then(() => {
+            fetch('https://howlongtobeat.com/api/user/pm/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json;charset=utf-8' },
+                body: JSON.stringify({
+                    conversationWith: getUsername(),
+                    message: JSON.stringify({
+                        journal: compressSessions(sessions),
+                        sessionsToRemove: loadSessionsToRemove()
+                    })
+                })
+            }).then(() => onPush());
+        });
     }
 
     function createOptionsPanel(container) {
@@ -565,17 +764,21 @@
         innerContainer.appendChild(clear);
 
         const now = new Date();
-        const sessions = loadSessions();
-
-        const journal = new Journal(journalPanel, now, sessions,
+        const journal = new Journal(
+            journalPanel,
+            now,
             () => { calendar.moveToPrevDate(); },
             () => { calendar.moveToNextDate(); }
         );
-        const summary = new Summary(summaryPanel, now, sessions);
-        const calendar = new Calendar(calendarPanel, now, newDate => {
-            journal.setDate(newDate);
-            summary.setDate(newDate);
-        });
+        const summary = new Summary(summaryPanel, now);
+        const calendar = new Calendar(
+            calendarPanel,
+            now,
+            newDate => {
+                journal.setDate(newDate);
+                summary.setDate(newDate);
+            }
+        );
     }
 
     function removeJournalTabContainer() {
@@ -627,6 +830,7 @@
 
         render() {
             this.renderTitle();
+            this.renderActions();
             this.renderDatePicker();
         }
 
@@ -635,6 +839,73 @@
             title.classList.add('head_padding', 'back_primary', 'center');
             title.innerText = 'Calendar';
             this.container.appendChild(title);
+        }
+
+        renderActions() {
+            const actions = document.createElement('div');
+            actions.style.display = 'flex';
+            actions.style.justifyContent = 'space-evenly';
+            this.container.appendChild(actions);
+
+            actions.appendChild(this.createAction(
+                'back_green',
+                'Export',
+                'Export Journal data to a file',
+                exportJournal
+            ));
+
+            const openImportActions = () => {
+                const importActions = document.getElementById(ID_PREFIX + 'import_actions');
+                importActions.style.display = 'flex';
+            }
+
+            const closeImportActions = () => {
+                const importActions = document.getElementById(ID_PREFIX + 'import_actions');
+                importActions.style.display = 'none';
+            }
+
+            const importBtn = this.createAction(
+                'back_blue',
+                'Import',
+                'Import Journal data from a file',
+                () => openImportActions()
+            )
+            importBtn.addEventListener('blur', () => { setTimeout(() => closeImportActions(), 500) });
+            importBtn.style.position = 'relative';
+            actions.appendChild(importBtn);
+
+            const importActions = document.createElement('div');
+            importActions.id = ID_PREFIX + 'import_actions';
+            importActions.classList.add('back_primary', 'shadow_box');
+            importActions.style.position = 'absolute';
+            importActions.style.zIndex = 1;
+            importActions.style.left = 0;
+            importActions.style.padding = '4px';
+            importActions.style.top = '32px';
+            importActions.style.display = 'none';
+            importActions.style.flexDirection = 'column';
+            importBtn.appendChild(importActions);
+
+            importActions.appendChild(this.createAction(
+                'back_blue',
+                'Overwrite',
+                'The existing Journal data will be replaced by the imported entries',
+                () => importJournal('overwrite')
+            ));
+
+            importActions.appendChild(this.createAction(
+                'back_blue',
+                'Merge',
+                'The existing Journal data will be merged with the new imported entries',
+                () => importJournal('merge')
+            ));
+
+            actions.appendChild(this.createAction(
+                'back_purple',
+                'Sync',
+                'Synchronize the Journal data in this browser with other browsers to have an unified log',
+                syncJournal
+            ));
         }
 
         renderDatePicker() {
@@ -657,6 +928,16 @@
             fieldset.appendChild(this.datePicker);
         }
 
+        createAction(colorClass, label, title, onClick) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.classList.add('form_button', colorClass);
+            button.innerText = label;
+            button.title = title;
+            button.addEventListener('click', () => onClick());
+            return button;
+        }
+
         updateDatepickerDate(date) {
             this.datePicker.value = this.date.toISOString().split('T')[0];
             this.datePicker.dispatchEvent(new Event('change'));
@@ -674,10 +955,9 @@
     }
 
     class Journal {
-        constructor(container, date, sessions, onPrevDateCb, onNextDateCb) {
+        constructor(container, date, onPrevDateCb, onNextDateCb) {
             this.container = container;
             this.date = date;
-            this.sessions = sessions;
             this.onPrevDateCb = onPrevDateCb;
             this.onNextDateCb = onNextDateCb;
             this.render();
@@ -689,14 +969,10 @@
             this.renderEntries();
         }
 
-        deleteJournalEntry(session) {
+        async deleteJournalEntry(session) {
             if (confirm('Are you sure you want to delete this journal entry?')) {
-                const index = this.sessions.findIndex(s => s.game.link === session.game.link && s.date.getTime() === session.date.getTime());
-                if (index !== -1) {
-                    this.sessions.splice(index, 1);
-                    saveSessions(this.sessions);
-                    this.renderEntries();
-                }
+                await removeSession(session);
+                this.renderEntries();
             }
         }
 
@@ -729,16 +1005,18 @@
         }
 
         renderEntries() {
-            const entries = this.container.querySelectorAll('.' + ID_PREFIX + 'journal_entry');
-            entries.forEach(entry => entry.remove());
-            this.container.querySelector('h4')?.remove();
+            loadSessions().then(sessions => {
+                const entries = this.container.querySelectorAll('.' + ID_PREFIX + 'journal_entry');
+                entries.forEach(entry => entry.remove());
+                this.container.querySelector('h4')?.remove();
 
-            let filteredSessions = filterSessionsByDates(this.sessions, this.date);
-            filteredSessions.forEach(session => {
-                this.renderJournalEntry(session);
+                let filteredSessions = filterSessionsByDates(sessions, this.date);
+                filteredSessions.forEach(session => {
+                    this.renderJournalEntry(session);
+                });
+                if (filteredSessions.length === 0)
+                    this.renderNoDataMessage();
             });
-            if (filteredSessions.length === 0)
-                this.renderNoDataMessage();
         }
 
         renderNoDataMessage() {
@@ -823,12 +1101,11 @@
     }
 
     class Summary {
-        constructor(container, date, sessions) {
+        constructor(container, date) {
             this.container = container;
             this.date = date;
             this.dateStart = null;
             this.dateEnd = null;
-            this.sessions = sessions;
             this.range = 'day';
             this.rangeSelector = null;
             this.rangeDayBtn = null;
@@ -972,25 +1249,27 @@
         }
 
         updateSummary() {
-            this.calculateRangeDates();
-            this.updateFromToDates();
+            loadSessions().then(sessions => {
+                this.calculateRangeDates();
+                this.updateFromToDates();
 
-            const filteredSessions = filterSessionsByDates(this.sessions, this.dateStart, this.dateEnd);
-            let gameIds = [];
-            let totalTime = 0;
+                const filteredSessions = filterSessionsByDates(sessions, this.dateStart, this.dateEnd);
+                let gameIds = [];
+                let totalTime = 0;
 
-            filteredSessions.forEach(session => {
-                if (gameIds.indexOf(session.game.link) < 0)
-                    gameIds.push(session.game.link);
-                totalTime += session.duration;
+                filteredSessions.forEach(session => {
+                    if (gameIds.indexOf(session.game.link) < 0)
+                        gameIds.push(session.game.link);
+                    totalTime += session.duration;
+                });
+
+                this.gamesCount.querySelector('span').innerText = gameIds.length;
+                this.sessionsCount.querySelector('span').innerText = filteredSessions.length;
+                const d = formatDuration(totalTime / 1000);
+                this.timeSummary.querySelector('span').innerText = d.h + 'h ' + d.m + 'm ' + d.s + 's';
+
+                this.updateRanking(filteredSessions);
             });
-
-            this.gamesCount.querySelector('span').innerText = gameIds.length;
-            this.sessionsCount.querySelector('span').innerText = filteredSessions.length;
-            const d = formatDuration(totalTime / 1000);
-            this.timeSummary.querySelector('span').innerText = d.h + 'h ' + d.m + 'm ' + d.s + 's';
-
-            this.updateRanking(filteredSessions);
         }
 
         updateRanking(filteredSessions) {
