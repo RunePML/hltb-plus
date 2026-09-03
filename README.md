@@ -4,6 +4,13 @@ A userscripts for HowLongToBeat with some QoL improvements
 ## Installation
 Go to the __Greasy Fork__ [link](https://greasyfork.org/es/scripts/583271-hltb) and click the __"Install this script"__ button.
 
+## V0.9.2 - 2026-09-03
+### Added
+- New __Import__ journal functionality added to __Journal__ page.
+- New __Sync__ journal functionality added to __Journal__ page.
+### Fixed
+- __File picker__ was not working on __Firefox__ browsers, now it is fixed.
+
 ## V0.9 - 2026-06-19
 ### Added
 - New __Summary__ panel added to __Journal__ page with a __date range__ selector.
