@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         HLTB+
 // @namespace    http://tampermonkey.net/
-// @version      0.9.1
+// @version      0.9.2
 // @description  QoL improvements for HLTB
 // @author       RunePML
 // @match        https://howlongtobeat.com/*
@@ -515,38 +515,47 @@
     }
 
     async function importJournal(importMode) {
-        const [file] = await showOpenFilePicker({
-            types: [{
-                description: 'Journal data file',
-                accept: { 'text/json': ['.json'] },
-            }],
-            multiple: false,
-            startIn: 'downloads',
-            excludeAcceptAllOption: true,
-        });
-
-        const data = await file.getFile();
-        const text = await data.text();
-        try {
-            const journal = JSON.parse(text).map(entry => new Session(
-                entry.game,
-                new Date(entry.date),
-                entry.duration
-            ));
-
-            switch (importMode) {
-                case 'overwrite':
-                    saveSessions(journal);
-                    showNotification('Journal data has been imported successfully, reload to see changes.');
-                    break;
-                case 'merge':
-                    const newEntries = await mergeJournals(journal);
-                    showNotification(newEntries + ' new entries added to the Journal');
-                    break;
+        const errorMessage = 'File is invalid or data is corrupt';
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = '.json';
+        fileInput.addEventListener('change', () => {
+            const file = fileInput.files?.[0];
+            if (!file) {
+                showNotification('Select a valid file');
+                return;
             }
-        } catch (error) {
-            showNotification('File is invalid or data is corrupt');
-        }
+
+            const reader = new FileReader();
+            reader.readAsText(file, 'UTF-8');
+            reader.onload = async ({ target }) => {
+                const text = target.result;
+                try {
+                    const journal = JSON.parse(text).map(entry => new Session(
+                        entry.game,
+                        new Date(entry.date),
+                        entry.duration
+                    ));
+
+                    switch (importMode) {
+                        case 'overwrite':
+                            saveSessions(journal);
+                            showNotification('Journal data has been imported successfully, reload to see changes.');
+                            break;
+                        case 'merge':
+                            const newEntries = await mergeJournals(journal);
+                            showNotification(newEntries + ' new entries added to the Journal');
+                            break;
+                    }
+                } catch (error) {
+                    showNotification(errorMessage);
+                }
+            }
+            reader.onerror = () => {
+                showNotification(errorMessage);
+            }
+        });
+        fileInput.click();
     }
 
     async function mergeJournals(journalToMerge) {
