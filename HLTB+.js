@@ -109,7 +109,7 @@
                 } else if (currentPage[2] && currentPage[2] === 'options') {
                     onOptionsPage();
                 }
-                break
+                break;
             default:
                 // Do nothing
                 break;
@@ -336,16 +336,16 @@
 
                 let csv = '';
                 if (fieldGame) {
-                    csv += 'Game;'
+                    csv += 'Game;';
                 }
                 if (fieldPlatform) {
-                    csv += 'Platform;'
+                    csv += 'Platform;';
                 }
                 if (fieldProgress) {
-                    csv += 'Progress'
+                    csv += 'Progress';
                 }
                 if (fieldRating) {
-                    csv += 'Rating;'
+                    csv += 'Rating;';
                 }
                 csv += '\n';
 
@@ -356,16 +356,16 @@
                     const columns = row.querySelectorAll('div');
 
                     if (fieldGame) {
-                        csv += columns[0].querySelector('a').innerText + ';'
+                        csv += columns[0].querySelector('a').innerText + ';';
                     }
                     if (fieldPlatform) {
-                        csv += columns[0].querySelector('span').innerText + ';'
+                        csv += columns[0].querySelector('span').innerText + ';';
                     }
                     if (fieldProgress) {
-                        csv += columns[1].innerText + ';'
+                        csv += columns[1].innerText + ';';
                     }
                     if (fieldRating) {
-                        csv += columns[2].innerText + ';'
+                        csv += columns[2].innerText + ';';
                     }
 
                     csv += '\n';
@@ -447,7 +447,7 @@
     }
 
     async function findGame(gameLink) {
-        const game = loadGames().find(game => game.link === gameLink)
+        const game = loadGames().find(game => game.link === gameLink);
         if (game)
             return game;
 
@@ -470,7 +470,7 @@
                     game,
                     new Date(session.date),
                     session.duration
-                )
+                );
             })
         );
     }
@@ -575,10 +575,10 @@
                 } catch (error) {
                     showNotification(errorMessage);
                 }
-            }
+            };
             reader.onerror = () => {
                 showNotification(errorMessage);
-            }
+            };
         });
         fileInput.click();
     }
@@ -841,7 +841,7 @@
         const nDateEnd = normalizeDate(dateEnd ? dateEnd : dateStart);
         return sessions.filter(session => {
             const nDate = normalizeDate(session.date);
-            return nDate >= nDateStart && nDate <= nDateEnd
+            return nDate >= nDateStart && nDate <= nDateEnd;
         });
     }
 
@@ -899,20 +899,20 @@
             const openImportActions = () => {
                 const importActions = document.getElementById(ID_PREFIX + 'import_actions');
                 importActions.style.display = 'flex';
-            }
+            };
 
             const closeImportActions = () => {
                 const importActions = document.getElementById(ID_PREFIX + 'import_actions');
                 importActions.style.display = 'none';
-            }
+            };
 
             const importBtn = this.createAction(
                 'back_blue',
                 'Import',
                 'Import Journal data from a file',
                 () => openImportActions()
-            )
-            importBtn.addEventListener('blur', () => { setTimeout(() => closeImportActions(), 500) });
+            );
+            importBtn.addEventListener('blur', () => { setTimeout(() => closeImportActions(), 500); });
             importBtn.style.position = 'relative';
             actions.appendChild(importBtn);
 
@@ -1120,7 +1120,7 @@
             deleteAction.height = '23';
             deleteAction.title = 'Delete entry';
             deleteAction.style.cursor = 'pointer';
-            deleteAction.addEventListener('click', () => { this.deleteJournalEntry(session) });
+            deleteAction.addEventListener('click', () => { this.deleteJournalEntry(session); });
             container.appendChild(deleteAction);
         }
 
@@ -1133,7 +1133,7 @@
             const format = (number) => {
                 return number >= 10
                     ? number.toString()
-                    : '0' + number.toString()
+                    : '0' + number.toString();
             };
             const start = format(session.date.getHours()) + ':' + format(session.date.getMinutes());
             const endTime = new Date(session.date.getTime() + session.duration);
@@ -1250,7 +1250,7 @@
         renderRanking() {
             const title = document.createElement('h4');
             title.style.padding = '4px 0';
-            title.innerText = 'Most played games'
+            title.innerText = 'Most played games';
             this.container.appendChild(title);
 
             this.ranking = document.createElement('div');
@@ -1349,7 +1349,7 @@
 
                 const time = document.createElement('span');
                 const t = formatDuration(gameRank.time / 1000);
-                time.innerText = t.h + 'h ' + t.m + 'm ' + t.s + 's'
+                time.innerText = t.h + 'h ' + t.m + 'm ' + t.s + 's';
                 rank.appendChild(time);
             }
         }
