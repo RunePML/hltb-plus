@@ -297,7 +297,11 @@
 
             const game = createGameFromPageData(document, null);
             const duration = formatDuration(totalSeconds);
-            showNotification('Game: ' + game.title + ' - Session duration: ' + duration.h + 'h&nbsp;' + duration.m + 'm&nbsp;' + duration.s + 's');
+            const editLink = window.location.href;
+            showNotification('Game: ' + game.title + ' - Session duration: ' + duration.h + 'h&nbsp;' + duration.m + 'm&nbsp;' + duration.s + 's', [
+                { label: 'Open Journal', action: () => { waitForElement('#' + ID_PREFIX + 'journal_tab a', journal => { journal.click(); }, 20); } },
+                { label: 'Back to Edit', action: () => { setTimeout(() => { window.location.href = editLink; }, 1000); } }
+            ]);
 
             if (options.journalEnabled) {
                 addSession(new Session(
