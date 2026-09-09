@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         HLTB+
 // @namespace    http://tampermonkey.net/
-// @version      0.9.2
+// @version      0.9.3
 // @description  QoL improvements for HLTB
 // @author       RunePML
 // @match        https://howlongtobeat.com/*
@@ -297,7 +297,11 @@
 
             const game = createGameFromPageData(document, null);
             const duration = formatDuration(totalSeconds);
-            showNotification('Game: ' + game.title + ' - Session duration: ' + duration.h + 'h&nbsp;' + duration.m + 'm&nbsp;' + duration.s + 's');
+            const editLink = window.location.href;
+            showNotification('Game: ' + game.title + ' - Session duration: ' + duration.h + 'h&nbsp;' + duration.m + 'm&nbsp;' + duration.s + 's', [
+                { label: 'Open Journal', action: () => { waitForElement('#' + ID_PREFIX + 'journal_tab a', journal => { journal.click(); }, 20); } },
+                { label: 'Back to Edit', action: () => { setTimeout(() => { window.location.href = editLink; }, 1000); } }
+            ]);
 
             if (options.journalEnabled) {
                 addSession(new Session(
@@ -384,7 +388,7 @@
         }
     }
 
-    function showNotification(notificationText) {
+    function showNotification(notificationText, actions) {
         if (!notificationsContainer) {
             notificationsContainer = document.createElement('div');
             notificationsContainer.id = ID_PREFIX + 'notifications_container';
@@ -398,12 +402,11 @@
             document.body.appendChild(notificationsContainer);
         }
 
-        const notification = document.createElement('h3');
+        const notification = document.createElement('div');
         notification.id = ID_PREFIX + 'notification_' + (new Date().getTime());
-        notification.classList.add('head_padding', 'back_pink', 'center');
-        let style = 'width: 80%; cursor: pointer;';
+        notification.classList.add('head_padding', 'back_pink');
+        let style = 'width: 80%; cursor: pointer; display: flex; gap: 16px; flex-wrap: wrap;';
         notification.style = style;
-        notification.innerHTML = notificationText;
         notification.addEventListener('click', () => {
             notification.remove();
             if (notificationsContainer.childNodes.length === 0) {
@@ -412,6 +415,26 @@
             }
         });
         notificationsContainer.appendChild(notification);
+
+        const text = document.createElement('h3');
+        text.classList.add('center');
+        text.style = 'flex: 1';
+        text.innerHTML = notificationText;
+        notification.appendChild(text);
+
+        const actionsContainer = document.createElement('div');
+        actionsContainer.style = 'display: flex; gap: 8px; flex-wrap: wrap';
+        notification.appendChild(actionsContainer);
+
+        if (actions)
+            actions.forEach(action => {
+                const actionBtn = document.createElement('button');
+                actionBtn.innerText = action.label;
+                actionBtn.classList.add('form_blue', 'secondary');
+                actionBtn.style = 'cursor: pointer;';
+                actionBtn.addEventListener('click', () => action.action());
+                actionsContainer.appendChild(actionBtn);
+            });
     }
 
     function loadGames() {
@@ -540,7 +563,9 @@
                     switch (importMode) {
                         case 'overwrite':
                             saveSessions(journal);
-                            showNotification('Journal data has been imported successfully, reload to see changes.');
+                            showNotification('Journal data has been imported successfully, reload to see the changes.', [
+                                { label: 'Reload', action: () => { location.reload(); } }
+                            ]);
                             break;
                         case 'merge':
                             const newEntries = await mergeJournals(journal);
@@ -597,7 +622,9 @@
                     showNotification(removedEntries + ' entries removed from the Journal');
             }
             loadSessions().then(loadedSessions => pushSyncJournalData(loadedSessions, () => {
-                showNotification('Journal data synchronized successfully');
+                showNotification('Journal data synchronized successfully, reload to see the changes.', [
+                    { label: 'Reload', action: () => { location.reload(); } }
+                ]);
             }));
         });
     }
@@ -694,7 +721,9 @@
         saveButton.addEventListener('click', () => {
             options.journalEnabled = journalEnabledCb.checked;
             saveOptions();
-            showNotification('HLTB+ options saved. Reload page to apply changes.');
+            showNotification('HLTB+ options saved, reload to see the changes.', [
+                { label: 'Reload', action: () => { location.reload(); } }
+            ]);
         });
         saveButtonContainer.appendChild(saveButton);
     }
