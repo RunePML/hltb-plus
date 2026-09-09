@@ -563,7 +563,9 @@
                     switch (importMode) {
                         case 'overwrite':
                             saveSessions(journal);
-                            showNotification('Journal data has been imported successfully, reload to see changes.');
+                            showNotification('Journal data has been imported successfully, reload to see the changes.', [
+                                { label: 'Reload', action: () => { location.reload(); } }
+                            ]);
                             break;
                         case 'merge':
                             const newEntries = await mergeJournals(journal);
@@ -620,7 +622,9 @@
                     showNotification(removedEntries + ' entries removed from the Journal');
             }
             loadSessions().then(loadedSessions => pushSyncJournalData(loadedSessions, () => {
-                showNotification('Journal data synchronized successfully');
+                showNotification('Journal data synchronized successfully, reload to see the changes.', [
+                    { label: 'Reload', action: () => { location.reload(); } }
+                ]);
             }));
         });
     }
@@ -717,7 +721,9 @@
         saveButton.addEventListener('click', () => {
             options.journalEnabled = journalEnabledCb.checked;
             saveOptions();
-            showNotification('HLTB+ options saved. Reload page to apply changes.');
+            showNotification('HLTB+ options saved, reload to see the changes.', [
+                { label: 'Reload', action: () => { location.reload(); } }
+            ]);
         });
         saveButtonContainer.appendChild(saveButton);
     }
