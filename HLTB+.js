@@ -384,7 +384,7 @@
         }
     }
 
-    function showNotification(notificationText) {
+    function showNotification(notificationText, actions) {
         if (!notificationsContainer) {
             notificationsContainer = document.createElement('div');
             notificationsContainer.id = ID_PREFIX + 'notifications_container';
@@ -398,12 +398,11 @@
             document.body.appendChild(notificationsContainer);
         }
 
-        const notification = document.createElement('h3');
+        const notification = document.createElement('div');
         notification.id = ID_PREFIX + 'notification_' + (new Date().getTime());
-        notification.classList.add('head_padding', 'back_pink', 'center');
-        let style = 'width: 80%; cursor: pointer;';
+        notification.classList.add('head_padding', 'back_pink');
+        let style = 'width: 80%; cursor: pointer; display: flex; gap: 16px; flex-wrap: wrap;';
         notification.style = style;
-        notification.innerHTML = notificationText;
         notification.addEventListener('click', () => {
             notification.remove();
             if (notificationsContainer.childNodes.length === 0) {
@@ -412,6 +411,26 @@
             }
         });
         notificationsContainer.appendChild(notification);
+
+        const text = document.createElement('h3');
+        text.classList.add('center');
+        text.style = 'flex: 1';
+        text.innerHTML = notificationText;
+        notification.appendChild(text);
+
+        const actionsContainer = document.createElement('div');
+        actionsContainer.style = 'display: flex; gap: 8px; flex-wrap: wrap';
+        notification.appendChild(actionsContainer);
+
+        if (actions)
+            actions.forEach(action => {
+                const actionBtn = document.createElement('button');
+                actionBtn.innerText = action.label;
+                actionBtn.classList.add('form_blue', 'secondary');
+                actionBtn.style = 'cursor: pointer;';
+                actionBtn.addEventListener('click', () => action.action());
+                actionsContainer.appendChild(actionBtn);
+            });
     }
 
     function loadGames() {
