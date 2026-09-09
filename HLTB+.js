@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         HLTB+
 // @namespace    http://tampermonkey.net/
-// @version      0.9.2
+// @version      0.9.3
 // @description  QoL improvements for HLTB
 // @author       RunePML
 // @match        https://howlongtobeat.com/*
