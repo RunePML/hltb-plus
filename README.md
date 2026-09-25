@@ -4,6 +4,13 @@ A userscripts for HowLongToBeat with some QoL improvements
 ## Installation
 Go to the __Greasy Fork__ [link](https://greasyfork.org/es/scripts/583271-hltb) and click the __"Install this script"__ button.
 
+## V0.9.4 - 2026-09-25
+### Added
+- When a Game changes __lists__, the change is stored and displayed in the corresponding __journal__ entry.
+- When a Game's __score__ changes, the new score is stored and displayed in the corresponding __journal__ entry.
+### Fixed
+- Game's cover in the __Journal__ is now vertically centered inside it´s entry and the aspect ratio of the image is preserved.
+
 ## V0.9.3 - 2026-09-09
 ### Updated
 - Notifications system improved.
