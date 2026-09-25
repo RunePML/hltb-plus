@@ -30,7 +30,8 @@
             custom1: { in: false, name: '' },
             custom2: { in: false, name: '' },
             custom3: { in: false, name: '' },
-        }
+        },
+        score: 0
     };
 
     let options = {
@@ -312,6 +313,10 @@
             : { from: fromLists, to: toLists };
     }
 
+    function getGameScore() {
+        return Number.parseInt(document.querySelector('select[name="review.score"]')?.value || 0);
+    }
+
     function createGameFromPageData(doc, gameLink) {
         const linkParts = gameLink ? '' : window.location.href.split('/');
         const imageElement = doc.querySelector('#tool_community img');
@@ -339,6 +344,7 @@
     function addGameEditEvents(currentProgressElement) {
         editPage.currentProgress = getCurrentProgressInSeconds(currentProgressElement);
         editPage.lists = getGameLists();
+        editPage.score = getGameScore();
 
         const saveBtn = document.querySelector('.global_padding_big.form_blue');
         saveBtn.addEventListener('click', () => {
@@ -348,7 +354,10 @@
             const savedLists = getGameLists();
             const listsFromTo = compareGameLists(editPage.lists, savedLists);
 
-            if (totalSeconds <= 0 && !listsFromTo)
+            const savedScore = getGameScore();
+            const scoreFromTo = savedScore !== editPage.score ? { from: editPage.score, to: savedScore } : null;
+
+            if (totalSeconds <= 0 && !listsFromTo && !scoreFromTo)
                 return;
 
             const game = createGameFromPageData(document, null);
@@ -360,7 +369,7 @@
                     { label: 'Back to Edit', action: () => { setTimeout(() => { window.location.href = editLink; }, 1000); } }
                 ]);
             else
-                showNotification('Game: ' + game.title + ' - Lists updated', [
+                showNotification('Game: ' + game.title + ' - Game data updated', [
                     { label: 'Open Journal', action: () => { waitForElement('#' + ID_PREFIX + 'journal_tab a', journal => { journal.click(); }, 20); } },
                     { label: 'Back to Edit', action: () => { setTimeout(() => { window.location.href = editLink; }, 1000); } }
                 ]);
@@ -370,7 +379,8 @@
                     game,
                     new Date(new Date().getTime() - (totalSeconds * 1000)),
                     totalSeconds * 1000,
-                    listsFromTo
+                    listsFromTo,
+                    scoreFromTo
                 ));
             }
         });
@@ -522,18 +532,29 @@
     }
 
     function compressSessions(sessions) {
-        return sessions.map(session => new Session(session.game.link, session.date.getTime(), session.duration, session.lists));
+        return sessions.map(session => new Session(
+            session.game.link,
+            session.date.getTime(),
+            session.duration,
+            session.lists,
+            session.score ? (session.score.from + '|' + session.score.to) : null
+        ));
     }
 
     async function decompressSessions(sessions) {
         return await Promise.all(
             sessions.map(async (session) => {
                 const game = await findGame(session.game);
+                const score = session.score ? {
+                    from: Number.parseInt(session.score.split('|')[0]),
+                    to: Number.parseInt(session.score.split('|')[1]),
+                } : null;
                 return new Session(
                     game,
                     new Date(session.date),
                     session.duration,
-                    session.lists || null
+                    session.lists || null,
+                    score
                 );
             })
         );
@@ -924,11 +945,12 @@
     }
 
     class Session {
-        constructor(game, date, duration, lists) {
+        constructor(game, date, duration, lists, score) {
             this.game = game;
             this.date = date;
             this.duration = duration;
             this.lists = lists;
+            this.score = score;
         }
     }
 
@@ -1180,6 +1202,13 @@
                 data.appendChild(timeFromTo);
             }
 
+            if (session.score) {
+                const scoreFromTo = document.createElement('div');
+                scoreFromTo.classList.add('text_grey');
+                scoreFromTo.innerText = this.formatScoreFromTo(session);
+                data.appendChild(scoreFromTo);
+            }
+
             if (session.lists) {
 
                 if (session.duration <= 0) {
@@ -1253,6 +1282,15 @@
             const endTime = new Date(session.date.getTime() + session.duration);
             const end = twoDigits(endTime.getHours()) + ':' + twoDigits(endTime.getMinutes());
             return 'From ' + start + ' to ' + end;
+        }
+
+        formatScoreFromTo(session) {
+            const from = (session.score.from / 10).toFixed(1);
+            const to = (session.score.to / 10).toFixed(1)
+            if (from === 0)
+                return 'Score: ' + to;
+            else
+                return 'Score: ' + from + ' >> ' + to;
         }
     }
 
