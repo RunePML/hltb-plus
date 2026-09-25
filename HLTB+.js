@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         HLTB+
 // @namespace    http://tampermonkey.net/
-// @version      0.9.3
+// @version      0.9.4
 // @description  QoL improvements for HLTB
 // @author       RunePML
 // @match        https://howlongtobeat.com/*
@@ -20,7 +20,18 @@
             timerRunning: false,
             timerPaused: false
         },
-        currentProgress: 0
+        currentProgress: 0,
+        lists: {
+            playing: false,
+            backlog: false,
+            replays: false,
+            completed: false,
+            retired: false,
+            custom1: { in: false, name: '' },
+            custom2: { in: false, name: '' },
+            custom3: { in: false, name: '' },
+        },
+        score: 0
     };
 
     let options = {
@@ -122,7 +133,9 @@
         }, 20);
 
         waitForElement('#progress_jump', currentProgressElement => {
-            customizeCurrentProgress(currentProgressElement);
+            waitForElement('#list_p', () => {
+                addGameEditEvents(currentProgressElement);
+            });
         });
     }
 
@@ -261,6 +274,49 @@
         return (hours * 3600) + (minutes * 60) + seconds;
     }
 
+    function getGameLists() {
+        return {
+            playing: document.querySelector('#list_p').checked,
+            backlog: document.querySelector('#list_b').checked,
+            replays: document.querySelector('#list_r').checked,
+            completed: document.querySelector('#list_cp').checked,
+            retired: document.querySelector('#list_rt').checked,
+            custom1: { in: document.querySelector('#list_c1')?.checked || false, name: document.querySelector('#list_c1')?.parentElement.innerText || '' },
+            custom2: { in: document.querySelector('#list_c2')?.checked || false, name: document.querySelector('#list_c2')?.parentElement.innerText || '' },
+            custom3: { in: document.querySelector('#list_c3')?.checked || false, name: document.querySelector('#list_c3')?.parentElement.innerText || '' },
+        };
+    }
+
+    function compareGameLists(from, to) {
+        const extractLists = obj => {
+            const lists = [];
+
+            if (obj.playing) lists.push('p');
+            if (obj.backlog) lists.push('b');
+            if (obj.replays) lists.push('r');
+            if (obj.completed) lists.push('cp');
+            if (obj.retired) lists.push('rt');
+
+            for (const custom of [obj.custom1, obj.custom2, obj.custom3]) {
+                if (custom.in) lists.push(custom.name);
+            }
+
+            return lists;
+        };
+
+        const fromLists = extractLists(from);
+        const toLists = extractLists(to);
+
+        return fromLists.length === toLists.length &&
+            fromLists.every((v, i) => v === toLists[i])
+            ? null
+            : { from: fromLists, to: toLists };
+    }
+
+    function getGameScore() {
+        return Number.parseInt(document.querySelector('select[name="review.score"]')?.value || 0);
+    }
+
     function createGameFromPageData(doc, gameLink) {
         const linkParts = gameLink ? '' : window.location.href.split('/');
         const imageElement = doc.querySelector('#tool_community img');
@@ -285,29 +341,46 @@
         return date.getDate() + '-' + (date.getMonth() + 1) + '-' + date.getFullYear();
     }
 
-    function customizeCurrentProgress(currentProgressElement) {
+    function addGameEditEvents(currentProgressElement) {
         editPage.currentProgress = getCurrentProgressInSeconds(currentProgressElement);
+        editPage.lists = getGameLists();
+        editPage.score = getGameScore();
 
         const saveBtn = document.querySelector('.global_padding_big.form_blue');
         saveBtn.addEventListener('click', () => {
             const savedProgress = getCurrentProgressInSeconds(currentProgressElement);
             const totalSeconds = savedProgress - editPage.currentProgress;
-            if (totalSeconds <= 0)
+
+            const savedLists = getGameLists();
+            const listsFromTo = compareGameLists(editPage.lists, savedLists);
+
+            const savedScore = getGameScore();
+            const scoreFromTo = savedScore !== editPage.score ? { from: editPage.score, to: savedScore } : null;
+
+            if (totalSeconds <= 0 && !listsFromTo && !scoreFromTo)
                 return;
 
             const game = createGameFromPageData(document, null);
             const duration = formatDuration(totalSeconds);
             const editLink = window.location.href;
-            showNotification('Game: ' + game.title + ' - Session duration: ' + duration.h + 'h&nbsp;' + duration.m + 'm&nbsp;' + duration.s + 's', [
-                { label: 'Open Journal', action: () => { waitForElement('#' + ID_PREFIX + 'journal_tab a', journal => { journal.click(); }, 20); } },
-                { label: 'Back to Edit', action: () => { setTimeout(() => { window.location.href = editLink; }, 1000); } }
-            ]);
+            if (totalSeconds > 0)
+                showNotification('Game: ' + game.title + ' - Session duration: ' + duration.h + 'h&nbsp;' + duration.m + 'm&nbsp;' + duration.s + 's', [
+                    { label: 'Open Journal', action: () => { waitForElement('#' + ID_PREFIX + 'journal_tab a', journal => { journal.click(); }, 20); } },
+                    { label: 'Back to Edit', action: () => { setTimeout(() => { window.location.href = editLink; }, 1000); } }
+                ]);
+            else
+                showNotification('Game: ' + game.title + ' - Game data updated', [
+                    { label: 'Open Journal', action: () => { waitForElement('#' + ID_PREFIX + 'journal_tab a', journal => { journal.click(); }, 20); } },
+                    { label: 'Back to Edit', action: () => { setTimeout(() => { window.location.href = editLink; }, 1000); } }
+                ]);
 
             if (options.journalEnabled) {
                 addSession(new Session(
                     game,
                     new Date(new Date().getTime() - (totalSeconds * 1000)),
-                    totalSeconds * 1000
+                    totalSeconds * 1000,
+                    listsFromTo,
+                    scoreFromTo
                 ));
             }
         });
@@ -459,17 +532,29 @@
     }
 
     function compressSessions(sessions) {
-        return sessions.map(session => new Session(session.game.link, session.date.getTime(), session.duration));
+        return sessions.map(session => new Session(
+            session.game.link,
+            session.date.getTime(),
+            session.duration,
+            session.lists,
+            session.score ? (session.score.from + '|' + session.score.to) : null
+        ));
     }
 
     async function decompressSessions(sessions) {
         return await Promise.all(
             sessions.map(async (session) => {
                 const game = await findGame(session.game);
+                const score = session.score ? {
+                    from: Number.parseInt(session.score.split('|')[0]),
+                    to: Number.parseInt(session.score.split('|')[1]),
+                } : null;
                 return new Session(
                     game,
                     new Date(session.date),
-                    session.duration
+                    session.duration,
+                    session.lists || null,
+                    score
                 );
             })
         );
@@ -845,6 +930,12 @@
         });
     }
 
+    function twoDigits(num) {
+        return num >= 10
+            ? num.toString()
+            : '0' + num.toString();
+    }
+
     class Game {
         constructor(title, link, image) {
             this.title = title;
@@ -854,10 +945,12 @@
     }
 
     class Session {
-        constructor(game, date, duration) {
+        constructor(game, date, duration, lists, score) {
             this.game = game;
             this.date = date;
             this.duration = duration;
+            this.lists = lists;
+            this.score = score;
         }
     }
 
@@ -1078,6 +1171,7 @@
             innerContainer.style.display = 'flex';
             innerContainer.style.flexDirection = 'row';
             innerContainer.style.justifyContent = 'space-between';
+            innerContainer.style.alignItems = 'center';
             entry.appendChild(innerContainer);
 
             const data = document.createElement('div');
@@ -1096,18 +1190,72 @@
 
             this.renderEntryActions(session, title);
 
-            const duration = document.createElement('strong');
-            const d = formatDuration(session.duration / 1000);
-            duration.innerText = d.h + 'h ' + d.m + 'm ' + d.s + 's';
-            data.appendChild(duration);
+            if (session.duration > 0) {
+                const duration = document.createElement('strong');
+                const d = formatDuration(session.duration / 1000);
+                duration.innerText = d.h + 'h ' + d.m + 'm ' + d.s + 's';
+                data.appendChild(duration);
 
-            const timeFromTo = document.createElement('div');
-            timeFromTo.classList.add('text_grey');
-            timeFromTo.innerText = this.formatTimeFromTo(session);
-            data.appendChild(timeFromTo);
+                const timeFromTo = document.createElement('div');
+                timeFromTo.classList.add('text_grey');
+                timeFromTo.innerText = this.formatTimeFromTo(session);
+                data.appendChild(timeFromTo);
+            }
+
+            if (session.score) {
+                const scoreFromTo = document.createElement('div');
+                scoreFromTo.classList.add('text_grey');
+                scoreFromTo.innerText = this.formatScoreFromTo(session);
+                data.appendChild(scoreFromTo);
+            }
+
+            if (session.lists) {
+
+                if (session.duration <= 0) {
+                    const time = document.createElement('div');
+                    time.classList.add('text_grey');
+                    time.innerText = 'At ' + twoDigits(session.date.getHours()) + ':' + twoDigits(session.date.getMinutes())
+                    data.appendChild(time);
+                }
+
+                const listDetails = {
+                    'p': { name: 'Playing', color: 'back_green' },
+                    'b': { name: 'Backlog', color: 'back_blue' },
+                    'r': { name: 'Replays', color: 'back_blueish' },
+                    'cp': { name: 'Completed', color: 'back_purple' },
+                    'rt': { name: 'Retired', color: 'back_red' },
+                };
+
+                const listsFromTo = document.createElement('div');
+                listsFromTo.style.display = 'flex';
+                listsFromTo.style.alignItems = 'center';
+                listsFromTo.style.gap = '8px';
+                listsFromTo.style.paddingTop = '4px';
+                session.lists.from.forEach(list => {
+                    const listItem = document.createElement('b');
+                    listItem.classList.add(listDetails[list]?.color || 'back_teal');
+                    listItem.style.padding = '2px 4px';
+                    listItem.style.borderRadius = '3px';
+                    listItem.innerText = listDetails[list]?.name || list;
+                    listsFromTo.appendChild(listItem);
+                });
+                const arrow = document.createElement('b');
+                arrow.innerText = '>>';
+                listsFromTo.appendChild(arrow);
+                session.lists.to.forEach(list => {
+                    const listItem = document.createElement('b');
+                    listItem.classList.add(listDetails[list]?.color || 'back_teal');
+                    listItem.style.padding = '2px';
+                    listItem.style.borderRadius = '3px';
+                    listItem.innerText = listDetails[list]?.name || list;
+                    listsFromTo.appendChild(listItem);
+                });
+                data.appendChild(listsFromTo);
+            }
 
             const image = document.createElement('img');
             image.width = 66;
+            image.style.height = '100%';
             image.src = '/games/' + session.game.image;
             image.style.borderRadius = '3px';
             innerContainer.appendChild(image);
@@ -1130,15 +1278,19 @@
         }
 
         formatTimeFromTo(session) {
-            const format = (number) => {
-                return number >= 10
-                    ? number.toString()
-                    : '0' + number.toString();
-            };
-            const start = format(session.date.getHours()) + ':' + format(session.date.getMinutes());
+            const start = twoDigits(session.date.getHours()) + ':' + twoDigits(session.date.getMinutes());
             const endTime = new Date(session.date.getTime() + session.duration);
-            const end = format(endTime.getHours()) + ':' + format(endTime.getMinutes());
+            const end = twoDigits(endTime.getHours()) + ':' + twoDigits(endTime.getMinutes());
             return 'From ' + start + ' to ' + end;
+        }
+
+        formatScoreFromTo(session) {
+            const from = (session.score.from / 10).toFixed(1);
+            const to = (session.score.to / 10).toFixed(1)
+            if (from === 0)
+                return 'Score: ' + to;
+            else
+                return 'Score: ' + from + ' >> ' + to;
         }
     }
 
