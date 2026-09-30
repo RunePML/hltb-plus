@@ -4,6 +4,12 @@ A userscripts for HowLongToBeat with some QoL improvements
 ## Installation
 Go to the __Greasy Fork__ [link](https://greasyfork.org/es/scripts/583271-hltb) and click the __"Install this script"__ button.
 
+## V0.9.5 - 2026-??-??
+### Added
+- 
+### Fixed
+- Fix an issues with __sessions__ not being displayed in the correct order in the __Journal__.
+
 ## V0.9.4 - 2026-09-25
 ### Added
 - When a Game changes __lists__, the change is stored and displayed in the corresponding __journal__ entry.

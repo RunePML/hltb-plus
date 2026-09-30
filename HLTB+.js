@@ -568,10 +568,11 @@
 
     function saveSessions(sessions) {
         const games = loadGames();
-        sessions.forEach(session => {
-            if (!games.find(game => game.link === session.game.link))
-                games.push(session.game);
-        });
+        sessions.sort((a, b) => a.date.getTime() - b.date.getTime())
+            .forEach(session => {
+                if (!games.find(game => game.link === session.game.link))
+                    games.push(session.game);
+            });
         saveGames(games);
 
         localStorage.setItem(
