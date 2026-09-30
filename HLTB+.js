@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         HLTB+
 // @namespace    http://tampermonkey.net/
-// @version      0.9.4
+// @version      0.9.5
 // @description  QoL improvements for HLTB
 // @author       RunePML
 // @match        https://howlongtobeat.com/*
@@ -41,13 +41,14 @@
     let notificationsContainer = null;
     let currentPage = [];
     let journalTabContainer = null;
+    let spinnerContainer = null;
 
     setTimeout(() => {
         console.log('HLTB+ is running');
         loadOptions();
         initNavigationObserver();
         onNavigate();
-    }, 1000);
+    }, 500);
 
     function findCurrentPage() {
         currentPage = window.location.pathname.substring(1).split('/');
@@ -91,7 +92,7 @@
                 console.log('Navigated from', prevPage, 'to', JSON.stringify(currentPage));
                 onNavigate();
             }
-        }, 1000);
+        }, 300);
 
         // Guard to avoid losing progress on a running timer when reloading or closing the tab
         window.addEventListener('beforeunload', (event) => {
@@ -103,6 +104,7 @@
     }
 
     function onNavigate() {
+        showSpinner();
         setMainBackgroundColor('transparent');
         removeJournalTabContainer();
 
@@ -135,6 +137,7 @@
         waitForElement('#progress_jump', currentProgressElement => {
             waitForElement('#list_p', () => {
                 addGameEditEvents(currentProgressElement);
+                hideSpinner();
             });
         });
     }
@@ -508,6 +511,35 @@
                 actionBtn.addEventListener('click', () => action.action());
                 actionsContainer.appendChild(actionBtn);
             });
+    }
+
+    function showSpinner() {
+        if (spinnerContainer)
+            return;
+
+        spinnerContainer = document.createElement('div');
+        spinnerContainer.id = ID_PREFIX + 'spinner';
+
+        let style = 'position: fixed;';
+        style += 'width: 100%; height: 100vh;';
+        style += 'top: 0; left: 0;';
+        style += 'background: rgba(0, 0, 0, 0.5);';
+        style += 'display: flex; justify-content: center; align-items: center;';
+
+        spinnerContainer.style = style;
+        document.body.appendChild(spinnerContainer);
+
+        let spinner = document.createElement('div');
+        spinner.classList.add('loading_bar');
+        spinnerContainer.appendChild(spinner);
+    }
+
+    function hideSpinner() {
+        if (!spinnerContainer)
+            return;
+
+        spinnerContainer.remove();
+        spinnerContainer = null;
     }
 
     function loadGames() {

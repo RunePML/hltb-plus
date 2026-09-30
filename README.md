@@ -4,9 +4,10 @@ A userscripts for HowLongToBeat with some QoL improvements
 ## Installation
 Go to the __Greasy Fork__ [link](https://greasyfork.org/es/scripts/583271-hltb) and click the __"Install this script"__ button.
 
-## V0.9.5 - 2026-??-??
+## V0.9.5 - 2026-09-30
 ### Added
-- 
+- Displays a __loading spinner__ while events are attached to __edit__ page until is ready.
+- Speeds up plugin execution.
 ### Fixed
 - Fix an issues with __sessions__ not being displayed in the correct order in the __Journal__.
 
