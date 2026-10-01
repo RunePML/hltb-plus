@@ -104,13 +104,13 @@
     }
 
     function onNavigate() {
-        showSpinner();
         setMainBackgroundColor('transparent');
         removeJournalTabContainer();
 
         switch (currentPage[0]) {
             case 'submit':
                 if (currentPage[1] && currentPage[1] === 'edit') {
+                    showSpinner();
                     onEditPage();
                 }
                 break;
