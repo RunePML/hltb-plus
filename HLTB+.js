@@ -1073,7 +1073,7 @@
         renderActions() {
             const actions = document.createElement('div');
             actions.style.display = 'flex';
-            actions.style.gap = '4px';
+            actions.style.columnGap = '8px';
             actions.style.flexWrap = 'wrap';
             this.container.appendChild(actions);
 
@@ -1474,7 +1474,7 @@
         renderRangeSelector() {
             this.rangeSelector = document.createElement('div');
             this.rangeSelector.style.display = 'flex';
-            this.rangeSelector.style.gap = '4px';
+            this.rangeSelector.style.columnGap = '8px';
             this.rangeSelector.style.flexWrap = 'wrap';
             this.container.appendChild(this.rangeSelector);
 
