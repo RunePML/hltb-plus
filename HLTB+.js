@@ -111,7 +111,7 @@
         switch (currentPage[0]) {
             case 'submit':
                 if (currentPage[1] && currentPage[1] === 'edit') {
-                    showSpinner();
+                    openSpinner();
                     onEditPage();
                 }
                 break;
@@ -138,7 +138,7 @@
         waitForElement('#progress_jump', currentProgressElement => {
             waitForElement('#list_p', () => {
                 addGameEditEvents(currentProgressElement);
-                hideSpinner();
+                closeSpinner();
             });
         });
     }
@@ -241,7 +241,7 @@
                     journalLink.href = '#';
                     journalLink.classList.add('link_orange');
                     journalLink.innerText = 'Journal';
-                    journalLink.addEventListener('click', () => showJournalDialog());
+                    journalLink.addEventListener('click', () => openJournalDialog());
                     li.appendChild(journalLink);
                 }
             }, 100);
@@ -395,12 +395,12 @@
             const editLink = window.location.href;
             if (totalSeconds > 0)
                 showNotification('Game: ' + game.title + ' - Session duration: ' + duration.h + 'h&nbsp;' + duration.m + 'm&nbsp;' + duration.s + 's', [
-                    { label: 'Open Journal', action: () => showJournalDialog() },
+                    { label: 'Open Journal', action: () => openJournalDialog() },
                     { label: 'Back to Edit', action: () => { setTimeout(() => { window.location.href = editLink; }, 1000); } }
                 ]);
             else
                 showNotification('Game: ' + game.title + ' - Game data updated', [
-                    { label: 'Open Journal', action: () => showJournalDialog() },
+                    { label: 'Open Journal', action: () => openJournalDialog() },
                     { label: 'Back to Edit', action: () => { setTimeout(() => { window.location.href = editLink; }, 1000); } }
                 ]);
 
@@ -540,7 +540,7 @@
             });
     }
 
-    function showSpinner() {
+    function openSpinner() {
         if (spinnerContainer)
             return;
 
@@ -561,7 +561,7 @@
         spinnerContainer.appendChild(spinner);
     }
 
-    function hideSpinner() {
+    function closeSpinner() {
         if (!spinnerContainer)
             return;
 
@@ -885,11 +885,11 @@
         const link = document.createElement('a');
         link.innerText = 'Journal';
         link.href = '#';
-        link.addEventListener('click', () => showJournalDialog());
+        link.addEventListener('click', () => openJournalDialog());
         journalTab.appendChild(link);
     }
 
-    function showJournalDialog() {
+    function openJournalDialog() {
         if (journalDialogContainer)
             return;
 
@@ -903,7 +903,7 @@
         style += 'display: flex; justify-content: center; align-items: center;';
 
         journalDialogContainer.style = style;
-        journalDialogContainer.addEventListener('click', () => hideJournalDialog());
+        journalDialogContainer.addEventListener('click', () => closeJournalDialog());
         document.body.appendChild(journalDialogContainer);
 
         const dialogContent = document.createElement('div');
@@ -918,10 +918,25 @@
         dialog.style.maxHeight = '90vh';
         dialogContent.appendChild(dialog);
 
+        const title = document.createElement('h3');
+        title.classList.add('head_padding', 'back_orange', 'center');
+        title.style = 'display: flex; justify-content: space-between;';
+        dialog.appendChild(title);
+
+        const titleText = document.createElement('span');
+        titleText.innerText = 'Journal';
+        titleText.style.flex = '1';
+        title.appendChild(titleText);
+
+        const closeBtn = document.createElement('button');
+        closeBtn.innerText = 'X';
+        closeBtn.addEventListener('click', () => closeJournalDialog());
+        title.appendChild(closeBtn);
+
         addJournalContent(dialog);
     }
 
-    function hideJournalDialog() {
+    function closeJournalDialog() {
         if (!journalDialogContainer)
             return;
 
@@ -941,6 +956,7 @@
 
         const innerContainer = document.createElement('div');
         innerContainer.classList.add('contain_in');
+        innerContainer.style = 'overflow-y: auto; max-height: 80vh;';
         journalContainer.appendChild(innerContainer);
 
         const leftColumn = document.createElement('div');
