@@ -106,7 +106,7 @@
 
     function onNavigate() {
         setMainBackgroundColor('transparent');
-        removejournalContent();
+        addUserLoginEvents();
 
         switch (currentPage[0]) {
             case 'submit':
@@ -220,6 +220,32 @@
         if (pageMain) {
             pageMain.style.backgroundColor = color;
         }
+    }
+
+    function addUserLoginEvents() {
+        if (!isUserLoggedIn)
+            return;
+
+        const userLogin = document.querySelector('[class*="__login"]');
+        if (userLogin.classList.contains('events_initialized'))
+            return;
+
+        userLogin.classList.add('events_initialized');
+        userLogin.addEventListener('click', () => {
+            setTimeout(() => {
+                const userProfileOptions = document.querySelector('[class*="UserNavigation-module"] [class*="nav_profile_load"] ul');
+                if (userProfileOptions) {
+                    const li = document.createElement('li');
+                    userProfileOptions.insertBefore(li, userProfileOptions.childNodes[5]);
+                    const journalLink = document.createElement('a');
+                    journalLink.href = '#';
+                    journalLink.classList.add('link_orange');
+                    journalLink.innerText = 'Journal';
+                    journalLink.addEventListener('click', () => showJournalDialog());
+                    li.appendChild(journalLink);
+                }
+            }, 100);
+        });
     }
 
     function customizeProgressTimer(progressTimer) {
@@ -369,12 +395,12 @@
             const editLink = window.location.href;
             if (totalSeconds > 0)
                 showNotification('Game: ' + game.title + ' - Session duration: ' + duration.h + 'h&nbsp;' + duration.m + 'm&nbsp;' + duration.s + 's', [
-                    { label: 'Open Journal', action: () => { waitForElement('#' + ID_PREFIX + 'journal_tab a', journal => { journal.click(); }, 20); } },
+                    { label: 'Open Journal', action: () => showJournalDialog() },
                     { label: 'Back to Edit', action: () => { setTimeout(() => { window.location.href = editLink; }, 1000); } }
                 ]);
             else
                 showNotification('Game: ' + game.title + ' - Game data updated', [
-                    { label: 'Open Journal', action: () => { waitForElement('#' + ID_PREFIX + 'journal_tab a', journal => { journal.click(); }, 20); } },
+                    { label: 'Open Journal', action: () => showJournalDialog() },
                     { label: 'Back to Edit', action: () => { setTimeout(() => { window.location.href = editLink; }, 1000); } }
                 ]);
 
