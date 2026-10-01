@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         HLTB+
 // @namespace    http://tampermonkey.net/
-// @version      0.9.5
+// @version      0.9.6
 // @description  QoL improvements for HLTB
 // @author       RunePML
 // @match        https://howlongtobeat.com/*
@@ -40,7 +40,8 @@
 
     let notificationsContainer = null;
     let currentPage = [];
-    let journalTabContainer = null;
+    let journalDialogContainer = null;
+    let journalContainer = null;
     let spinnerContainer = null;
 
     setTimeout(() => {
@@ -105,12 +106,12 @@
 
     function onNavigate() {
         setMainBackgroundColor('transparent');
-        removeJournalTabContainer();
+        addUserLoginEvents();
 
         switch (currentPage[0]) {
             case 'submit':
                 if (currentPage[1] && currentPage[1] === 'edit') {
-                    showSpinner();
+                    openSpinner();
                     onEditPage();
                 }
                 break;
@@ -137,7 +138,7 @@
         waitForElement('#progress_jump', currentProgressElement => {
             waitForElement('#list_p', () => {
                 addGameEditEvents(currentProgressElement);
-                hideSpinner();
+                closeSpinner();
             });
         });
     }
@@ -219,6 +220,32 @@
         if (pageMain) {
             pageMain.style.backgroundColor = color;
         }
+    }
+
+    function addUserLoginEvents() {
+        if (!isUserLoggedIn)
+            return;
+
+        const userLogin = document.querySelector('[class*="__login"]');
+        if (userLogin.classList.contains('events_initialized'))
+            return;
+
+        userLogin.classList.add('events_initialized');
+        userLogin.addEventListener('click', () => {
+            setTimeout(() => {
+                const userProfileOptions = document.querySelector('[class*="UserNavigation-module"] [class*="nav_profile_load"] ul');
+                if (userProfileOptions) {
+                    const li = document.createElement('li');
+                    userProfileOptions.insertBefore(li, userProfileOptions.childNodes[5]);
+                    const journalLink = document.createElement('a');
+                    journalLink.href = '#';
+                    journalLink.classList.add('link_orange');
+                    journalLink.innerText = 'Journal';
+                    journalLink.addEventListener('click', () => openJournalDialog());
+                    li.appendChild(journalLink);
+                }
+            }, 100);
+        });
     }
 
     function customizeProgressTimer(progressTimer) {
@@ -368,12 +395,12 @@
             const editLink = window.location.href;
             if (totalSeconds > 0)
                 showNotification('Game: ' + game.title + ' - Session duration: ' + duration.h + 'h&nbsp;' + duration.m + 'm&nbsp;' + duration.s + 's', [
-                    { label: 'Open Journal', action: () => { waitForElement('#' + ID_PREFIX + 'journal_tab a', journal => { journal.click(); }, 20); } },
+                    { label: 'Open Journal', action: () => openJournalDialog() },
                     { label: 'Back to Edit', action: () => { setTimeout(() => { window.location.href = editLink; }, 1000); } }
                 ]);
             else
                 showNotification('Game: ' + game.title + ' - Game data updated', [
-                    { label: 'Open Journal', action: () => { waitForElement('#' + ID_PREFIX + 'journal_tab a', journal => { journal.click(); }, 20); } },
+                    { label: 'Open Journal', action: () => openJournalDialog() },
                     { label: 'Back to Edit', action: () => { setTimeout(() => { window.location.href = editLink; }, 1000); } }
                 ]);
 
@@ -513,7 +540,7 @@
             });
     }
 
-    function showSpinner() {
+    function openSpinner() {
         if (spinnerContainer)
             return;
 
@@ -534,7 +561,7 @@
         spinnerContainer.appendChild(spinner);
     }
 
-    function hideSpinner() {
+    function closeSpinner() {
         if (!spinnerContainer)
             return;
 
@@ -858,45 +885,79 @@
         const link = document.createElement('a');
         link.innerText = 'Journal';
         link.href = '#';
-        link.addEventListener('click', () => {
-            const activeTabContent = document.querySelector('.contain_out:nth-child(2)');
-            activeTabContent.style.display = 'none';
-
-            const activeClass = 'back_pink';
-            journalTab.classList.add(activeClass);
-
-            const tabs = navigationElement.querySelectorAll('li');
-            Array.from(tabs).forEach(tab => {
-                if (tab === journalTab)
-                    return;
-
-                tab.classList.remove(activeClass);
-                tab.addEventListener('click', () => {
-                    tab.classList.add(activeClass);
-                    activeTabContent.style.display = 'block';
-
-                    journalTab.classList.remove(activeClass);
-                    removeJournalTabContainer();
-                });
-            });
-
-            addJournalTabContainer(activeTabContent.parentElement);
-        });
+        link.addEventListener('click', () => openJournalDialog());
         journalTab.appendChild(link);
     }
 
-    function addJournalTabContainer(container) {
-        if (journalTabContainer)
+    function openJournalDialog() {
+        if (journalDialogContainer)
             return;
 
-        journalTabContainer = document.createElement('div');
-        journalTabContainer.id = ID_PREFIX + 'journal_tab_content';
-        journalTabContainer.classList.add('contain_out');
-        container.appendChild(journalTabContainer);
+        journalDialogContainer = document.createElement('div');
+        journalDialogContainer.id = ID_PREFIX + 'journal_dialog_container';
+
+        let style = 'position: fixed;';
+        style += 'width: 100%; height: 100vh;';
+        style += 'top: 0; left: 0;';
+        style += 'background: rgba(0, 0, 0, 0.5);';
+        style += 'display: flex; justify-content: center; align-items: center;';
+
+        journalDialogContainer.style = style;
+        journalDialogContainer.addEventListener('click', () => closeJournalDialog());
+        document.body.appendChild(journalDialogContainer);
+
+        const dialogContent = document.createElement('div');
+        dialogContent.classList.add('content_100');
+        dialogContent.addEventListener('click', event => {
+            event.stopPropagation();
+        });
+        journalDialogContainer.appendChild(dialogContent);
+
+        const dialog = document.createElement('div');
+        dialog.classList.add('in', 'back_primary', 'shadow_box');
+        dialog.style.maxHeight = '90vh';
+        dialogContent.appendChild(dialog);
+
+        const title = document.createElement('h3');
+        title.classList.add('head_padding', 'back_orange', 'center');
+        title.style = 'display: flex; justify-content: space-between;';
+        dialog.appendChild(title);
+
+        const titleText = document.createElement('span');
+        titleText.innerText = 'Journal';
+        titleText.style.flex = '1';
+        title.appendChild(titleText);
+
+        const closeBtn = document.createElement('button');
+        closeBtn.innerText = 'X';
+        closeBtn.addEventListener('click', () => closeJournalDialog());
+        title.appendChild(closeBtn);
+
+        addJournalContent(dialog);
+    }
+
+    function closeJournalDialog() {
+        if (!journalDialogContainer)
+            return;
+
+        removejournalContent();
+        journalDialogContainer.remove();
+        journalDialogContainer = null;
+    }
+
+    function addJournalContent(container) {
+        if (journalContainer)
+            return;
+
+        journalContainer = document.createElement('div');
+        journalContainer.id = ID_PREFIX + 'journal_tab_content';
+        journalContainer.classList.add('contain_out');
+        container.appendChild(journalContainer);
 
         const innerContainer = document.createElement('div');
         innerContainer.classList.add('contain_in');
-        journalTabContainer.appendChild(innerContainer);
+        innerContainer.style = 'overflow-y: auto; max-height: 80vh; max-width: none;';
+        journalContainer.appendChild(innerContainer);
 
         const leftColumn = document.createElement('div');
         leftColumn.classList.add('content_25_extend', 'spaced');
@@ -941,12 +1002,12 @@
         );
     }
 
-    function removeJournalTabContainer() {
-        if (!journalTabContainer)
+    function removejournalContent() {
+        if (!journalContainer)
             return;
 
-        journalTabContainer.remove();
-        journalTabContainer = null;
+        journalContainer.remove();
+        journalContainer = null;
     }
 
 
@@ -1012,7 +1073,8 @@
         renderActions() {
             const actions = document.createElement('div');
             actions.style.display = 'flex';
-            actions.style.justifyContent = 'space-evenly';
+            actions.style.columnGap = '8px';
+            actions.style.flexWrap = 'wrap';
             this.container.appendChild(actions);
 
             actions.appendChild(this.createAction(
@@ -1102,6 +1164,7 @@
             button.classList.add('form_button', colorClass);
             button.innerText = label;
             button.title = title;
+            button.style.flex = '1';
             button.addEventListener('click', () => onClick());
             return button;
         }
@@ -1411,6 +1474,8 @@
         renderRangeSelector() {
             this.rangeSelector = document.createElement('div');
             this.rangeSelector.style.display = 'flex';
+            this.rangeSelector.style.columnGap = '8px';
+            this.rangeSelector.style.flexWrap = 'wrap';
             this.container.appendChild(this.rangeSelector);
 
             this.rangeDayBtn = this.addRangeButton('Day', 'day');
