@@ -956,7 +956,7 @@
 
         const innerContainer = document.createElement('div');
         innerContainer.classList.add('contain_in');
-        innerContainer.style = 'overflow-y: auto; max-height: 80vh;';
+        innerContainer.style = 'overflow-y: auto; max-height: 80vh; max-width: none;';
         journalContainer.appendChild(innerContainer);
 
         const leftColumn = document.createElement('div');
@@ -1073,7 +1073,8 @@
         renderActions() {
             const actions = document.createElement('div');
             actions.style.display = 'flex';
-            actions.style.justifyContent = 'space-evenly';
+            actions.style.gap = '4px';
+            actions.style.flexWrap = 'wrap';
             this.container.appendChild(actions);
 
             actions.appendChild(this.createAction(
@@ -1163,6 +1164,7 @@
             button.classList.add('form_button', colorClass);
             button.innerText = label;
             button.title = title;
+            button.style.flex = '1';
             button.addEventListener('click', () => onClick());
             return button;
         }
@@ -1472,6 +1474,8 @@
         renderRangeSelector() {
             this.rangeSelector = document.createElement('div');
             this.rangeSelector.style.display = 'flex';
+            this.rangeSelector.style.gap = '4px';
+            this.rangeSelector.style.flexWrap = 'wrap';
             this.container.appendChild(this.rangeSelector);
 
             this.rangeDayBtn = this.addRangeButton('Day', 'day');
