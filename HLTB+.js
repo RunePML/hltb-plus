@@ -40,7 +40,8 @@
 
     let notificationsContainer = null;
     let currentPage = [];
-    let journalTabContainer = null;
+    let journalDialogContainer = null;
+    let journalContainer = null;
     let spinnerContainer = null;
 
     setTimeout(() => {
@@ -105,7 +106,7 @@
 
     function onNavigate() {
         setMainBackgroundColor('transparent');
-        removeJournalTabContainer();
+        removejournalContent();
 
         switch (currentPage[0]) {
             case 'submit':
@@ -858,45 +859,63 @@
         const link = document.createElement('a');
         link.innerText = 'Journal';
         link.href = '#';
-        link.addEventListener('click', () => {
-            const activeTabContent = document.querySelector('.contain_out:nth-child(2)');
-            activeTabContent.style.display = 'none';
-
-            const activeClass = 'back_pink';
-            journalTab.classList.add(activeClass);
-
-            const tabs = navigationElement.querySelectorAll('li');
-            Array.from(tabs).forEach(tab => {
-                if (tab === journalTab)
-                    return;
-
-                tab.classList.remove(activeClass);
-                tab.addEventListener('click', () => {
-                    tab.classList.add(activeClass);
-                    activeTabContent.style.display = 'block';
-
-                    journalTab.classList.remove(activeClass);
-                    removeJournalTabContainer();
-                });
-            });
-
-            addJournalTabContainer(activeTabContent.parentElement);
-        });
+        link.addEventListener('click', () => showJournalDialog());
         journalTab.appendChild(link);
     }
 
-    function addJournalTabContainer(container) {
-        if (journalTabContainer)
+    function showJournalDialog() {
+        if (journalDialogContainer)
             return;
 
-        journalTabContainer = document.createElement('div');
-        journalTabContainer.id = ID_PREFIX + 'journal_tab_content';
-        journalTabContainer.classList.add('contain_out');
-        container.appendChild(journalTabContainer);
+        journalDialogContainer = document.createElement('div');
+        journalDialogContainer.id = ID_PREFIX + 'journal_dialog_container';
+
+        let style = 'position: fixed;';
+        style += 'width: 100%; height: 100vh;';
+        style += 'top: 0; left: 0;';
+        style += 'background: rgba(0, 0, 0, 0.5);';
+        style += 'display: flex; justify-content: center; align-items: center;';
+
+        journalDialogContainer.style = style;
+        journalDialogContainer.addEventListener('click', () => hideJournalDialog());
+        document.body.appendChild(journalDialogContainer);
+
+        const dialogContent = document.createElement('div');
+        dialogContent.classList.add('content_100');
+        dialogContent.addEventListener('click', event => {
+            event.stopPropagation();
+        });
+        journalDialogContainer.appendChild(dialogContent);
+
+        const dialog = document.createElement('div');
+        dialog.classList.add('in', 'back_primary', 'shadow_box');
+        dialog.style.maxHeight = '90vh';
+        dialogContent.appendChild(dialog);
+
+        addJournalContent(dialog);
+    }
+
+    function hideJournalDialog() {
+        if (!journalDialogContainer)
+            return;
+
+        removejournalContent();
+        journalDialogContainer.remove();
+        journalDialogContainer = null;
+    }
+
+    function addJournalContent(container) {
+        if (journalContainer)
+            return;
+
+        journalContainer = document.createElement('div');
+        journalContainer.id = ID_PREFIX + 'journal_tab_content';
+        journalContainer.classList.add('contain_out');
+        container.appendChild(journalContainer);
 
         const innerContainer = document.createElement('div');
         innerContainer.classList.add('contain_in');
-        journalTabContainer.appendChild(innerContainer);
+        journalContainer.appendChild(innerContainer);
 
         const leftColumn = document.createElement('div');
         leftColumn.classList.add('content_25_extend', 'spaced');
@@ -941,12 +960,12 @@
         );
     }
 
-    function removeJournalTabContainer() {
-        if (!journalTabContainer)
+    function removejournalContent() {
+        if (!journalContainer)
             return;
 
-        journalTabContainer.remove();
-        journalTabContainer = null;
+        journalContainer.remove();
+        journalContainer = null;
     }
 
 
