@@ -743,6 +743,7 @@
     }
 
     async function syncJournal() {
+        openSpinner();
         showNotification('Syncing Journal data...');
         fetchSyncJournalData(async (sessions, sessionsToRemove) => {
             if (sessions) {
@@ -770,6 +771,7 @@
                 showNotification('Journal data synchronized successfully, reload to see the changes.', [
                     { label: 'Reload', action: () => { location.reload(); } }
                 ]);
+                closeSpinner();
             }));
         });
     }

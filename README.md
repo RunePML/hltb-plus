@@ -4,6 +4,10 @@ A userscripts for HowLongToBeat with some QoL improvements
 ## Installation
 Go to the __Greasy Fork__ [link](https://greasyfork.org/es/scripts/583271-hltb) and click the __"Install this script"__ button.
 
+## V0.9.7 - 2026-??-??
+### Added
+- A spinner is displayed while syncing the __Journal__.
+
 ## V0.9.6 - 2026-10-01
 ### Added
 - New __Journal__ link added to user profile options list.
