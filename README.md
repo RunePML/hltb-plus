@@ -8,6 +8,9 @@ Go to the __Greasy Fork__ [link](https://greasyfork.org/es/scripts/583271-hltb) 
 ### Added
 - A spinner is displayed while syncing the __Journal__.
 
+### Fixed
+- __Lists__ changes where not being detected for __custom tab 1_. Now is working properly.
+
 ## V0.9.6 - 2026-10-01
 ### Added
 - New __Journal__ link added to user profile options list.

@@ -311,7 +311,7 @@
             replays: document.querySelector('#list_r').checked,
             completed: document.querySelector('#list_cp').checked,
             retired: document.querySelector('#list_rt').checked,
-            custom1: { in: document.querySelector('#list_c1')?.checked || false, name: document.querySelector('#list_c1')?.parentElement.innerText || '' },
+            custom1: { in: document.querySelector('#list_c')?.checked || false, name: document.querySelector('#list_c')?.parentElement.innerText || '' },
             custom2: { in: document.querySelector('#list_c2')?.checked || false, name: document.querySelector('#list_c2')?.parentElement.innerText || '' },
             custom3: { in: document.querySelector('#list_c3')?.checked || false, name: document.querySelector('#list_c3')?.parentElement.innerText || '' },
         };
