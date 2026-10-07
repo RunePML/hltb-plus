@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         HLTB+
 // @namespace    http://tampermonkey.net/
-// @version      0.9.6
+// @version      0.9.7
 // @description  QoL improvements for HLTB
 // @author       RunePML
 // @match        https://howlongtobeat.com/*
@@ -311,7 +311,7 @@
             replays: document.querySelector('#list_r').checked,
             completed: document.querySelector('#list_cp').checked,
             retired: document.querySelector('#list_rt').checked,
-            custom1: { in: document.querySelector('#list_c1')?.checked || false, name: document.querySelector('#list_c1')?.parentElement.innerText || '' },
+            custom1: { in: document.querySelector('#list_c')?.checked || false, name: document.querySelector('#list_c')?.parentElement.innerText || '' },
             custom2: { in: document.querySelector('#list_c2')?.checked || false, name: document.querySelector('#list_c2')?.parentElement.innerText || '' },
             custom3: { in: document.querySelector('#list_c3')?.checked || false, name: document.querySelector('#list_c3')?.parentElement.innerText || '' },
         };
@@ -702,7 +702,9 @@
                     const journal = JSON.parse(text).map(entry => new Session(
                         entry.game,
                         new Date(entry.date),
-                        entry.duration
+                        entry.duration,
+                        entry.lists,
+                        entry.score
                     ));
 
                     switch (importMode) {
@@ -743,6 +745,7 @@
     }
 
     async function syncJournal() {
+        openSpinner();
         showNotification('Syncing Journal data...');
         fetchSyncJournalData(async (sessions, sessionsToRemove) => {
             if (sessions) {
@@ -770,6 +773,7 @@
                 showNotification('Journal data synchronized successfully, reload to see the changes.', [
                     { label: 'Reload', action: () => { location.reload(); } }
                 ]);
+                closeSpinner();
             }));
         });
     }
@@ -1268,6 +1272,7 @@
             innerContainer.style.flexDirection = 'row';
             innerContainer.style.justifyContent = 'space-between';
             innerContainer.style.alignItems = 'center';
+            innerContainer.style.gap = '8px';
             entry.appendChild(innerContainer);
 
             const data = document.createElement('div');
@@ -1327,6 +1332,7 @@
                 listsFromTo.style.alignItems = 'center';
                 listsFromTo.style.gap = '8px';
                 listsFromTo.style.paddingTop = '4px';
+                listsFromTo.style.flexWrap = 'wrap';
                 session.lists.from.forEach(list => {
                     const listItem = document.createElement('b');
                     listItem.classList.add(listDetails[list]?.color || 'back_teal');
@@ -1499,6 +1505,7 @@
 
         renderRanking() {
             const title = document.createElement('h4');
+            title.id = ID_PREFIX + 'ranking_title';
             title.style.padding = '4px 0';
             title.innerText = 'Most played games';
             this.container.appendChild(title);
@@ -1564,8 +1571,23 @@
             });
         }
 
+        sessionsHasDuration(sessions) {
+            for (let i = 0; i < sessions.length; i++) {
+                if (sessions[i].duration > 0)
+                    return true;
+            }
+            return false;
+        }
+
         updateRanking(filteredSessions) {
+            const rankingTitle = document.getElementById(ID_PREFIX + 'ranking_title');
             this.ranking.innerHTML = '';
+
+            if (!this.sessionsHasDuration(filteredSessions)) {
+                rankingTitle.style.display = 'none';
+                return;
+            }
+            rankingTitle.style.display = 'block';
 
             const gamesRank = [];
 
@@ -1582,6 +1604,8 @@
             const rankingSize = 3;
             for (let i = 0; i < gamesRank.length && i < rankingSize; i++) {
                 const gameRank = gamesRank[i];
+                if (gameRank.time === 0)
+                    return;
 
                 const rank = document.createElement('a');
                 rank.style.display = 'flex';

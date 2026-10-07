@@ -4,6 +4,18 @@ A userscripts for HowLongToBeat with some QoL improvements
 ## Installation
 Go to the __Greasy Fork__ [link](https://greasyfork.org/es/scripts/583271-hltb) and click the __"Install this script"__ button.
 
+## V0.9.7 - 2026-10-07
+### Added
+- A spinner is displayed while syncing the __Journal__.
+
+### Updated
+- Improves __lists__ changes rendering in the __Journal__ for mobile devices.
+- __Most played games__ in the __Journal´s summary__ hides games with no play time.
+
+### Fixed
+- __Lists__ changes where not being detected for __custom tab 1_. Now is working properly.
+- __Lists__ and __score__ are now properly imported into the __Journal__ from a __file__.
+
 ## V0.9.6 - 2026-10-01
 ### Added
 - New __Journal__ link added to user profile options list.
