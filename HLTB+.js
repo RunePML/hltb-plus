@@ -1270,6 +1270,7 @@
             innerContainer.style.flexDirection = 'row';
             innerContainer.style.justifyContent = 'space-between';
             innerContainer.style.alignItems = 'center';
+            innerContainer.style.gap = '8px';
             entry.appendChild(innerContainer);
 
             const data = document.createElement('div');
@@ -1329,6 +1330,7 @@
                 listsFromTo.style.alignItems = 'center';
                 listsFromTo.style.gap = '8px';
                 listsFromTo.style.paddingTop = '4px';
+                listsFromTo.style.flexWrap = 'wrap';
                 session.lists.from.forEach(list => {
                     const listItem = document.createElement('b');
                     listItem.classList.add(listDetails[list]?.color || 'back_teal');
