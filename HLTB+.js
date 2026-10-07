@@ -710,13 +710,13 @@
                     switch (importMode) {
                         case 'overwrite':
                             saveSessions(journal);
-                            showNotification('Journal data has been imported successfully, reload to see the changes.', [
-                                { label: 'Reload', action: () => { location.reload(); } }
-                            ]);
+                            showNotification('Journal data has been imported successfully.');
+                            reloadJournalDialog();
                             break;
                         case 'merge':
                             const newEntries = await mergeJournals(journal);
-                            showNotification(newEntries + ' new entries added to the Journal');
+                            showNotification(newEntries + ' new entries added to the Journal.');
+                            reloadJournalDialog();
                             break;
                     }
                 } catch (error) {
@@ -770,9 +770,8 @@
                     showNotification(removedEntries + ' entries removed from the Journal');
             }
             loadSessions().then(loadedSessions => pushSyncJournalData(loadedSessions, () => {
-                showNotification('Journal data synchronized successfully, reload to see the changes.', [
-                    { label: 'Reload', action: () => { location.reload(); } }
-                ]);
+                showNotification('Journal data synchronized successfully.');
+                reloadJournalDialog();
                 closeSpinner();
             }));
         });
@@ -947,6 +946,11 @@
         removejournalContent();
         journalDialogContainer.remove();
         journalDialogContainer = null;
+    }
+
+    function reloadJournalDialog() {
+        closeJournalDialog();
+        openJournalDialog();
     }
 
     function addJournalContent(container) {
