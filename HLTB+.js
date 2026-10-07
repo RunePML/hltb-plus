@@ -1505,6 +1505,7 @@
 
         renderRanking() {
             const title = document.createElement('h4');
+            title.id = ID_PREFIX + 'ranking_title';
             title.style.padding = '4px 0';
             title.innerText = 'Most played games';
             this.container.appendChild(title);
@@ -1570,8 +1571,23 @@
             });
         }
 
+        sessionsHasDuration(sessions) {
+            for (let i = 0; i < sessions.length; i++) {
+                if (sessions[i].duration > 0)
+                    return true;
+            }
+            return false;
+        }
+
         updateRanking(filteredSessions) {
+            const rankingTitle = document.getElementById(ID_PREFIX + 'ranking_title');
             this.ranking.innerHTML = '';
+
+            if (!this.sessionsHasDuration(filteredSessions)) {
+                rankingTitle.style.display = 'none';
+                return;
+            }
+            rankingTitle.style.display = 'block';
 
             const gamesRank = [];
 
@@ -1588,6 +1604,8 @@
             const rankingSize = 3;
             for (let i = 0; i < gamesRank.length && i < rankingSize; i++) {
                 const gameRank = gamesRank[i];
+                if (gameRank.time === 0)
+                    return;
 
                 const rank = document.createElement('a');
                 rank.style.display = 'flex';

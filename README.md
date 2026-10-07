@@ -10,6 +10,7 @@ Go to the __Greasy Fork__ [link](https://greasyfork.org/es/scripts/583271-hltb) 
 
 ### Updated
 - Improves __lists__ changes rendering in the __Journal__ for mobile devices.
+- __Most played games__ in the __Journal´s summary__ hides games with no play time.
 
 ### Fixed
 - __Lists__ changes where not being detected for __custom tab 1_. Now is working properly.
