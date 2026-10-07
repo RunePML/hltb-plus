@@ -13,6 +13,7 @@ Go to the __Greasy Fork__ [link](https://greasyfork.org/es/scripts/583271-hltb) 
 
 ### Fixed
 - __Lists__ changes where not being detected for __custom tab 1_. Now is working properly.
+- __Lists__ and __score__ are now properly imported into the __Journal__ from a __file__.
 
 ## V0.9.6 - 2026-10-01
 ### Added

@@ -702,7 +702,9 @@
                     const journal = JSON.parse(text).map(entry => new Session(
                         entry.game,
                         new Date(entry.date),
-                        entry.duration
+                        entry.duration,
+                        entry.lists,
+                        entry.score
                     ));
 
                     switch (importMode) {
