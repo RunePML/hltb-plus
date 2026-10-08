@@ -33,6 +33,10 @@
         },
         score: 0
     };
+    const statsPage = {
+        categorySelect: null,
+        yearSelect: null
+    }
 
     let options = {
         journalEnabled: false,
@@ -208,9 +212,8 @@
     }
 
     function onStatsPage() {
-        waitForElement('#user_stats', userStats => {
-            addUserTimeStats(userStats);
-            addCompletionDateToUserTItleLists(userStats);
+        waitForElement('form[name="userstats"]', userStatsForm => {
+            attachUserStatsEvents(userStatsForm);
         });
     }
 
@@ -1027,12 +1030,111 @@
         journalContainer = null;
     }
 
-    function addUserTimeStats(userStats) {
+    function attachUserStatsEvents(userStatsForm) {
+        const updateUserStats = (wait) => {
+            const category = statsPage.categorySelect.value;
+            addUserTimeStats(category, wait);
+            addCompletionDateToUserTitleLists(category, wait);
+        }
+
+        statsPage.categorySelect = userStatsForm.querySelector('select[name="showcat"]');
+        statsPage.categorySelect.addEventListener('change', () => updateUserStats(true));
+        updateUserStats(false);
+    }
+
+    function onStatsLoad(callback) {
+        waitForElement('#user_stats .loading_bar', loadingBar => {
+            waitForElement('#user_stats .content_100', content => {
+                callback(content.parentElement);
+            });
+        });
+    }
+
+    function addUserTimeStats(category, wait) {
+        const addStats = (userStats) => {
+            loadSessions().then(sessions => {
+                // TODO: Filter by year
+                // const dateStart = new Date('2026-01-01');
+                // const dateEnd = new Date('2026-12-31');
+                // const filteredSessions = filterSessionsByDates(sessions, dateStart, dateEnd);
+
+                const filteredSessions = sessions;
+                addUserTimeStatsSummary(userStats, sessions);
+            });
+        };
+
+        if (wait)
+            onStatsLoad(userStats => addStats(userStats));
+        else
+            addStats(document.getElementById('user_stats'));
+    }
+
+    function addUserTimeStatsSummary(userStats, sessions) {
+        const createStat = (label, value) => {
+            const stat = document.createElement('div');
+            stat.style.textAlign = 'center';
+            stat.style.padding = '2% 0';
+
+            const valueElement = document.createElement('h1');
+            valueElement.classList.add('text_pink');
+            valueElement.innerText = value;
+            stat.appendChild(valueElement);
+
+            const labelElement = document.createElement('h4');
+            labelElement.innerText = label;
+            stat.appendChild(labelElement);
+
+            return stat;
+        }
+
+        const refContainer = userStats.querySelector('.content_50');
+        const contentBreak = document.createElement('div');
+        contentBreak.classList.add('content_break');
+        userStats.insertBefore(contentBreak, refContainer);
+        const wrapper = document.createElement('div');
+        wrapper.classList.add('content_100');
+        userStats.insertBefore(wrapper, refContainer);
+
+        const container = document.createElement('div');
+        container.classList.add('in', 'back_primary', 'shadow_border', 'center');
+        wrapper.appendChild(container);
+
+        const summaryGrid = document.createElement('div');
+        summaryGrid.style.display = 'grid';
+        summaryGrid.style.gridTemplateColumns = 'repeat(3, 1fr)';
+        container.appendChild(summaryGrid);
+
+        let gameIds = [];
+        let totalTime = 0;
+        sessions.forEach(session => {
+            if (gameIds.indexOf(session.game.link) < 0)
+                gameIds.push(session.game.link);
+            totalTime += session.duration;
+        });
+
+        let sessionsCount = sessions.length;
+        let gamesCount = gameIds.length;
+        const d = formatDuration(totalTime / 1000);
+        let timeCount = d.h + 'h ' + d.m + 'm ' + d.s + 's';
+
+        summaryGrid.appendChild(createStat('Sessions', sessionsCount));
+        summaryGrid.appendChild(createStat('Games played', gamesCount));
+        summaryGrid.appendChild(createStat('Total play time', timeCount));
+    }
+
+    function addUserTimeStatsDatailed(userstats, sessions) {
         // TODO
     }
 
-    function addCompletionDateToUserTItleLists(userStats) {
-        // TODO
+    function addCompletionDateToUserTitleLists(category, wait) {
+        const addDate = (userStats) => {
+            // TODO
+        };
+
+        if (wait)
+            onStatsLoad(userStats => addDate(userStats));
+        else
+            addDate(document.getElementById('user_stats'));
     }
 
 
