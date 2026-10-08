@@ -122,6 +122,8 @@
                     onGamesPage();
                 } else if (currentPage[2] && currentPage[2] === 'options') {
                     onOptionsPage();
+                } else if (currentPage[2] && currentPage[2] === 'stats') {
+                    onStatsPage();
                 }
                 break;
             default:
@@ -202,6 +204,13 @@
         waitForElement('.contain_out:nth-child(2) .contain_in', optionsContainer => {
             const optionsColumns = optionsContainer.querySelectorAll('.content_33');
             createOptionsPanel(optionsColumns[optionsColumns.length - 1]);
+        });
+    }
+
+    function onStatsPage() {
+        waitForElement('#user_stats', userStats => {
+            addUserTimeStats(userStats);
+            addCompletionDateToUserTItleLists(userStats);
         });
     }
 
@@ -1016,6 +1025,14 @@
 
         journalContainer.remove();
         journalContainer = null;
+    }
+
+    function addUserTimeStats(userStats) {
+        // TODO
+    }
+
+    function addCompletionDateToUserTItleLists(userStats) {
+        // TODO
     }
 
 
