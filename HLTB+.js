@@ -33,6 +33,7 @@
         },
         score: 0
     };
+    const USERT_STAT_CLASS = 'user-stat';
     const statsPage = {
         categorySelect: null,
         yearSelect: null
@@ -1027,6 +1028,7 @@
 
     function attachUserStatsEvents(userStatsForm) {
         const updateUserStats = (wait) => {
+            clearUserStats();
             const category = statsPage.categorySelect.value;
             addUserTimeStats(category, wait);
             addCompletionDateToUserTitleLists(category, wait);
@@ -1045,6 +1047,10 @@
         });
     }
 
+    function clearUserStats() {
+        document.querySelectorAll('.' + USERT_STAT_CLASS).forEach(stat => stat.remove());
+    }
+
     function addUserTimeStats(category, wait) {
         const addStats = (userStats) => {
             loadSessions().then(sessions => {
@@ -1054,7 +1060,8 @@
                 // const filteredSessions = filterSessionsByDates(sessions, dateStart, dateEnd);
 
                 const filteredSessions = sessions;
-                addUserTimeStatsSummary(userStats, sessions);
+                addUserTimeStatsSummary(userStats, filteredSessions);
+                addUserTimeStatsDetailed(userStats, filteredSessions);
             });
         };
 
@@ -1084,12 +1091,17 @@
 
         const refContainer = userStats.querySelector('.content_50');
         const contentBreak = document.createElement('div');
-        contentBreak.classList.add('content_break');
+        contentBreak.classList.add(USERT_STAT_CLASS, 'content_break');
         userStats.insertBefore(contentBreak, refContainer);
         const wrapper = document.createElement('div');
-        wrapper.classList.add('content_100');
+        wrapper.classList.add(USERT_STAT_CLASS, 'content_100');
         userStats.insertBefore(wrapper, refContainer);
 
+        const title = document.createElement('h2');
+        title.classList.add('head_padding', 'center');
+        title.innerText = 'Time Summary';
+        wrapper.appendChild(title);
+        
         const container = document.createElement('div');
         container.classList.add('in', 'back_primary', 'shadow_border', 'center');
         wrapper.appendChild(container);
@@ -1117,7 +1129,7 @@
         summaryGrid.appendChild(createStat('Total play time', timeCount));
     }
 
-    function addUserTimeStatsDatailed(userstats, sessions) {
+    function addUserTimeStatsDetailed(userstats, sessions) {
         // TODO
     }
 
