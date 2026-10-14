@@ -7,6 +7,7 @@ Go to the __Greasy Fork__ [link](https://greasyfork.org/es/scripts/583271-hltb) 
 ## V0.9.8 - 2026-??-??
 ### Added
 - __Journal__ autoreloads after __Importing/Syncing__ data.
+- Applies __Year__ filter to user the user stats displayed on the __Stats__ tab.
 - __Time Summary__ section added to __Stats__ tab.
 
 ## V0.9.7 - 2026-10-07

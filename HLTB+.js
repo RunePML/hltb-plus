@@ -1033,21 +1033,71 @@
 
     function attachUserStatsEvents(userStatsForm) {
         const updateUserStats = (wait) => {
-            clearUserStats();
             const category = statsPage.categorySelect.value;
-            addUserTimeStats(category, wait);
-            addCompletionDateToUserTitleLists(category, wait);
+            loadSessions().then(sessions => {
+                let filteredSessions = filterSessionsByYears(sessions, statsPage.yearSelect.selectedMode, statsPage.yearSelect.selectedYears);
+                // TODO: apply extra filters
+                // filteredSessions = filterSessionsByPlatform(filteredSessions, '', []);
+                // filteredSessions = filterSessionsByStorefront(filteredSessions, '', []);
+                clearUserStats();
+                addUserTimeStats(category, filteredSessions, wait);
+                addCompletionDateToUserTitleLists(category, filteredSessions, wait);
+            });
+        }
+
+        const getSelectedYears = (callback) => {
+            setTimeout(() => {
+                const modeInputs = statsPage.yearSelect.wrapper.querySelectorAll('label[class*="__mode_option"] input');
+                const yearsElements = statsPage.yearSelect.wrapper.querySelectorAll('label[class*="__option"]');
+
+                if (modeInputs.length === 0)
+                    return;
+
+                modeInputs.forEach(modeInput => {
+                    modeInput.addEventListener('change', event => {
+                        statsPage.yearSelect.selectedMode = event.target.parentElement.querySelector('span').innerText === 'Include' ? 'include' : 'exclude';
+                        callback();
+                    });
+                });
+
+                yearsElements.forEach(yearElement => {
+                    yearElement.addEventListener('change', () => {
+                        const checked = yearElement.querySelector('input').checked;
+                        const year = Number.parseInt(yearElement.querySelector('span').innerText);
+                        const yearIndex = statsPage.yearSelect.selectedYears.indexOf(year);
+
+                        if (checked && yearIndex === -1)
+                            statsPage.yearSelect.selectedYears.push(year);
+
+                        if (!checked && yearIndex >= 0)
+                            statsPage.yearSelect.selectedYears.splice(yearIndex, 1);
+
+                        callback();
+                    });
+                });
+
+            }, 100);
         }
 
         statsPage.categorySelect = userStatsForm.querySelector('select[name="showcat"]');
         statsPage.categorySelect.addEventListener('change', () => updateUserStats(true));
+        statsPage.yearSelect = {
+            wrapper: userStatsForm.querySelector('.multiselect_wrapper'),
+            button: userStatsForm.querySelector('.multiselect_wrapper .multiselect_trigger'),
+            selectedMode: 'include',
+            selectedYears: [],
+        };
+        statsPage.yearSelect.button.addEventListener('click', () => {
+            getSelectedYears(() => updateUserStats(true));
+        });
         updateUserStats(false);
     }
 
     function onStatsLoad(callback) {
         waitForElement('#user_stats .loading_bar', loadingBar => {
-            waitForElement('#user_stats .content_100', content => {
-                callback(content.parentElement);
+            waitForElement('#user_stats h1, #user_stats .global_padding.center', content => {
+                if (content.tagName === 'H1')
+                    callback(content.parentElement);
             });
         });
     }
@@ -1056,18 +1106,10 @@
         document.querySelectorAll('.' + USERT_STAT_CLASS).forEach(stat => stat.remove());
     }
 
-    function addUserTimeStats(category, wait) {
+    function addUserTimeStats(category, sessions, wait) {
         const addStats = (userStats) => {
-            loadSessions().then(sessions => {
-                // TODO: Filter by year
-                // const dateStart = new Date('2026-01-01');
-                // const dateEnd = new Date('2026-12-31');
-                // const filteredSessions = filterSessionsByDates(sessions, dateStart, dateEnd);
-
-                const filteredSessions = sessions;
-                addUserTimeStatsSummary(userStats, filteredSessions);
-                addUserTimeStatsDetailed(userStats, filteredSessions);
-            });
+            addUserTimeStatsSummary(userStats, sessions);
+            addUserTimeStatsDetailed(userStats, sessions);
         };
 
         if (wait)
@@ -1095,6 +1137,9 @@
         }
 
         const refContainer = userStats.querySelector('.content_50');
+        if (!refContainer)
+            return;
+
         const contentBreak = document.createElement('div');
         contentBreak.classList.add(USERT_STAT_CLASS, 'content_break');
         userStats.insertBefore(contentBreak, refContainer);
@@ -1106,7 +1151,7 @@
         title.classList.add('head_padding', 'center');
         title.innerText = 'Time Summary';
         wrapper.appendChild(title);
-        
+
         const container = document.createElement('div');
         container.classList.add('in', 'back_primary', 'shadow_border', 'center');
         wrapper.appendChild(container);
@@ -1134,11 +1179,11 @@
         summaryGrid.appendChild(createStat('Total play time', timeCount));
     }
 
-    function addUserTimeStatsDetailed(userstats, sessions) {
+    function addUserTimeStatsDetailed(userStats, sessions) {
         // TODO
     }
 
-    function addCompletionDateToUserTitleLists(category, wait) {
+    function addCompletionDateToUserTitleLists(category, sessions, wait) {
         const addDate = (userStats) => {
             // TODO
         };
@@ -1161,6 +1206,44 @@
             const nDate = normalizeDate(session.date);
             return nDate >= nDateStart && nDate <= nDateEnd;
         });
+    }
+
+    /**
+     * @param {Session []} sessions 
+     * @param {'include' | 'exclude'} mode 
+     * @param {Integer []} years 
+     */
+    function filterSessionsByYears(sessions, mode, years) {
+        console.log(mode);
+
+        if (years.length === 0)
+            return sessions;
+
+        return sessions.filter(session => {
+            if (mode === 'include')
+                return years.indexOf(session.date.getFullYear()) >= 0;
+            return years.indexOf(session.date.getFullYear()) === -1;
+        });
+    }
+
+    /**
+     * @param {Session []} sessions 
+     * @param {'include' | 'exclude'} mode 
+     * @param {String []} platforms 
+     */
+    function filterSessionsByPlatform(sessions, mode, platforms) {
+        // TODO: Implement filter
+        return sessions;
+    }
+
+    /**
+     * @param {Session []} sessions 
+     * @param {'include' | 'exclude'} mode 
+     * @param {String []} storefronts 
+     */
+    function filterSessionsByStorefront(sessions, mode, storefronts) {
+        // TODO: Implement filter
+        return sessions;
     }
 
     function twoDigits(num) {
