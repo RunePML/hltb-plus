@@ -36,7 +36,8 @@
     const USERT_STAT_CLASS = 'user-stat';
     const statsPage = {
         categorySelect: null,
-        yearSelect: null
+        yearSelect: null,
+        platformSelect: null,
     }
 
     let options = {
@@ -1029,17 +1030,19 @@
     function attachUserStatsEvents(userStatsForm) {
         const updateUserStats = (wait) => {
             const category = statsPage.categorySelect.value;
-            const mode = statsPage.yearSelect.selectedMode;
+            const yearMode = statsPage.yearSelect.selectedMode;
             const years = statsPage.yearSelect.selectedYears;
+            const platformMode = statsPage.platformSelect.selectedMode;
+            const platforms = statsPage.platformSelect.selectedPlatforms;
             if (category === 'user_catalog') {
                 clearUserStats();
                 return;
             }
 
             loadSessions().then(sessions => {
-                let filteredSessions = filterSessionsByCategoryAndYear(addExtraDataToSessions(sessions), category, mode, years);
+                let filteredSessions = filterSessionsByCategoryAndYear(addExtraDataToSessions(sessions), category, yearMode, years);
+                filteredSessions = filterSessionsByPlatform(filteredSessions, platformMode, platforms);
                 // TODO: apply extra filters
-                // filteredSessions = filterSessionsByPlatform(filteredSessions, '', []);
                 // filteredSessions = filterSessionsByStorefront(filteredSessions, '', []);
                 clearUserStats();
                 addUserTimeStats(filteredSessions, wait);
@@ -1051,7 +1054,6 @@
             setTimeout(() => {
                 const modeInputs = statsPage.yearSelect.wrapper.querySelectorAll('label[class*="__mode_option"] input');
                 const yearsElements = statsPage.yearSelect.wrapper.querySelectorAll('label[class*="__option"]');
-
                 if (modeInputs.length === 0)
                     return;
 
@@ -1074,24 +1076,85 @@
                         if (!checked && yearIndex >= 0)
                             statsPage.yearSelect.selectedYears.splice(yearIndex, 1);
 
+                        const clearButton = statsPage.yearSelect.wrapper.querySelector('button[class*="__clear_button"]');
+                        if (clearButton && !clearButton.classList.contains('events_initialized')) {
+                            clearButton.addEventListener('click', () => {
+                                statsPage.yearSelect.selectedYears = [];
+                                callback();
+                            });
+                            clearButton.classList.add('events_initialized');
+                        }
+
+                        callback();
+                    });
+                });
+            }, 100);
+        };
+
+        const getSelectedPlatforms = (callback) => {
+            setTimeout(() => {
+                const modeInputs = statsPage.platformSelect.wrapper.querySelectorAll('label[class*="__mode_option"] input');
+                const platformsElements = statsPage.platformSelect.wrapper.querySelectorAll('label[class*="__option"]');
+                if (modeInputs.length === 0)
+                    return;
+
+                modeInputs.forEach(modeInput => {
+                    modeInput.addEventListener('change', event => {
+                        statsPage.platformSelect.selectedMode = event.target.parentElement.querySelector('span').innerText === 'Include' ? 'include' : 'exclude';
                         callback();
                     });
                 });
 
+                platformsElements.forEach(platformElement => {
+                    platformElement.addEventListener('change', () => {
+                        const checked = platformElement.querySelector('input').checked;
+                        const platform = platformElement.querySelector('span').innerText;
+                        const platformIndex = statsPage.platformSelect.selectedPlatforms.indexOf(platform);
+
+                        if (checked && platformIndex === -1)
+                            statsPage.platformSelect.selectedPlatforms.push(platform);
+
+                        if (!checked && platformIndex >= 0)
+                            statsPage.platformSelect.selectedPlatforms.splice(platformIndex, 1);
+
+                        const clearButton = statsPage.platformSelect.wrapper.querySelector('button[class*="__clear_button"]');
+                        if (clearButton && !clearButton.classList.contains('events_initialized')) {
+                            clearButton.addEventListener('click', () => {
+                                statsPage.platformSelect.selectedPlatforms = [];
+                                callback();
+                            });
+                            clearButton.classList.add('events_initialized');
+                        }
+
+                        callback();
+                    });
+                });
             }, 100);
-        }
+        };
 
         statsPage.categorySelect = userStatsForm.querySelector('select[name="showcat"]');
         statsPage.categorySelect.addEventListener('change', () => updateUserStats(true));
+
+        const selectWrappers = userStatsForm.querySelectorAll('.multiselect_wrapper');
         statsPage.yearSelect = {
-            wrapper: userStatsForm.querySelector('.multiselect_wrapper'),
-            button: userStatsForm.querySelector('.multiselect_wrapper .multiselect_trigger'),
+            wrapper: selectWrappers[0],
+            button: selectWrappers[0].querySelector('.multiselect_trigger'),
             selectedMode: 'include',
             selectedYears: [],
         };
         statsPage.yearSelect.button.addEventListener('click', () => {
             getSelectedYears(() => updateUserStats(true));
         });
+        statsPage.platformSelect = {
+            wrapper: selectWrappers[1],
+            button: selectWrappers[1].querySelector('.multiselect_trigger'),
+            selectedMode: 'include',
+            selectedPlatforms: []
+        };
+        statsPage.platformSelect.button.addEventListener('click', () => {
+            getSelectedPlatforms(() => updateUserStats(true));
+        });
+
         updateUserStats(false);
     }
 
@@ -1245,9 +1308,7 @@
 
         return sessions.filter(session => {
             const year = category === 'user_beat' ? session.date.getFullYear() : session.game.release_year;
-            if (mode === 'include')
-                return years.indexOf(year) >= 0;
-            return years.indexOf(year) === -1;
+            return mode === 'include' ? years.indexOf(year) >= 0 : years.indexOf(year) === -1;
         });
     }
 
@@ -1257,8 +1318,13 @@
      * @param {String []} platforms 
      */
     function filterSessionsByPlatform(sessions, mode, platforms) {
-        // TODO: Implement filter
-        return sessions;
+        if (platforms.length === 0)
+            return sessions;
+
+        return sessions.filter(session => {
+            const platform = session.game.platform;
+            return mode === 'include' ? platforms.indexOf(session.game.platform) >= 0 : platforms.indexOf(session.game.platform) === -1;
+        });
     }
 
     /**
