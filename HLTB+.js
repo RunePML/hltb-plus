@@ -1043,19 +1043,9 @@
             const storefrontMode = statsPage.storefrontSelect.selectedMode;
             const storefronts = statsPage.storefrontSelect.selectedStorefronts;
 
-            /**
-             * TODO: Fix category mode
-             * user_catalog: All games, beaten or not with the selected filters
-             * user_beat: games beaten with the selected filters
-             * game_date: games beaten that where released at the selected years with the selected filters
-             */
-            if (category === 'user_catalog') {
-                clearUserStats();
-                return;
-            }
-
             loadSessions().then(sessions => {
-                let filteredSessions = filterSessionsByCategoryAndYear(addExtraDataToSessions(sessions), category, yearMode, years);
+                let filteredSessions = filterSessionsByCategory(addExtraDataToSessions(sessions), category);
+                filteredSessions = filterSessionsByYear(filteredSessions, category, yearMode, years);
                 filteredSessions = filterSessionsByPlatform(filteredSessions, platformMode, platforms);
                 filteredSessions = filterSessionsByStorefront(filteredSessions, storefrontMode, storefronts);
                 clearUserStats();
@@ -1313,15 +1303,25 @@
     /**
      * @param {Session []} sessions 
      * @param {'user_catalog' | 'user_beat' | 'game_date'} category 
+     */
+    function filterSessionsByCategory(sessions, category) {
+        return category === 'user_catalog' ? sessions : sessions.filter(session => {
+            return session.game.date_complete !== '0000-00-00';
+        });
+    }
+
+    /**
+     * @param {Session []} sessions 
+     * @param {'user_catalog' | 'user_beat' | 'game_date'} category 
      * @param {'include' | 'exclude'} mode 
      * @param {Integer []} years 
      */
-    function filterSessionsByCategoryAndYear(sessions, category, mode, years) {
+    function filterSessionsByYear(sessions, category, mode, years) {
         if (years.length === 0)
             return sessions;
 
         return sessions.filter(session => {
-            const year = category === 'user_beat' ? session.date.getFullYear() : session.game.release_year;
+            const year = category === 'game_date' ? session.game.release_year : session.date.getFullYear();
             return mode === 'include' ? years.indexOf(year) >= 0 : years.indexOf(year) === -1;
         });
     }
