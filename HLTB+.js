@@ -1034,14 +1034,21 @@
     function attachUserStatsEvents(userStatsForm) {
         const updateUserStats = (wait) => {
             const category = statsPage.categorySelect.value;
+            if (category === 'user_catalog') {
+                clearUserStats();
+                return;
+            }
+
             loadSessions().then(sessions => {
-                let filteredSessions = filterSessionsByYears(sessions, statsPage.yearSelect.selectedMode, statsPage.yearSelect.selectedYears);
+                let detailedSessions = addExtraDataToSessions(sessions);
+                let filteredSessions = filterSessionsByCategory(detailedSessions, statsPage.categorySelect.value);
+                filteredSessions = filterSessionsByYears(filteredSessions, statsPage.yearSelect.selectedMode, statsPage.yearSelect.selectedYears);
                 // TODO: apply extra filters
                 // filteredSessions = filterSessionsByPlatform(filteredSessions, '', []);
                 // filteredSessions = filterSessionsByStorefront(filteredSessions, '', []);
                 clearUserStats();
-                addUserTimeStats(category, filteredSessions, wait);
-                addCompletionDateToUserTitleLists(category, filteredSessions, wait);
+                addUserTimeStats(filteredSessions, wait);
+                addCompletionDateToUserTitleLists(filteredSessions, wait);
             });
         }
 
@@ -1106,7 +1113,7 @@
         document.querySelectorAll('.' + USERT_STAT_CLASS).forEach(stat => stat.remove());
     }
 
-    function addUserTimeStats(category, sessions, wait) {
+    function addUserTimeStats(sessions, wait) {
         const addStats = (userStats) => {
             addUserTimeStatsSummary(userStats, sessions);
             addUserTimeStatsDetailed(userStats, sessions);
@@ -1183,7 +1190,7 @@
         // TODO
     }
 
-    function addCompletionDateToUserTitleLists(category, sessions, wait) {
+    function addCompletionDateToUserTitleLists(sessions, wait) {
         const addDate = (userStats) => {
             // TODO
         };
@@ -1199,6 +1206,27 @@
         return new Date(date.getFullYear(), date.getMonth(), date.getDate());
     }
 
+
+    function getPageProps() {
+        return JSON.parse(document.querySelector('script#__NEXT_DATA__').innerHTML).props.pageProps;
+    }
+
+    function addExtraDataToSessions(sessions) {
+        const games = getPageProps()?.userStats.gameList;
+        return sessions.map(session => {
+            const game = games.filter(game => game.id == session.game.link)[0];
+            if (game) {
+                session.game.date_complete = game.date_complete;
+                session.game.game_id = game.game_id;
+                session.game.platform = game.platform;
+                session.game.play_storefront = game.play_storefront;
+                session.game.release_year = game.release_year;
+                session.game.review_score = game.review_score;
+            }
+            return session;
+        });
+    }
+
     function filterSessionsByDates(sessions, dateStart, dateEnd) {
         const nDateStart = normalizeDate(dateStart);
         const nDateEnd = normalizeDate(dateEnd ? dateEnd : dateStart);
@@ -1206,6 +1234,15 @@
             const nDate = normalizeDate(session.date);
             return nDate >= nDateStart && nDate <= nDateEnd;
         });
+    }
+
+    /**
+     * @param {Session []} sessions 
+     * @param {'user_catalog' | 'user_beat' | 'game_date'} category 
+     */
+    function filterSessionsByCategory(sessions, category) {
+        // TODO: Implement filter
+        return sessions;
     }
 
     /**
