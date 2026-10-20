@@ -1029,15 +1029,15 @@
     function attachUserStatsEvents(userStatsForm) {
         const updateUserStats = (wait) => {
             const category = statsPage.categorySelect.value;
+            const mode = statsPage.yearSelect.selectedMode;
+            const years = statsPage.yearSelect.selectedYears;
             if (category === 'user_catalog') {
                 clearUserStats();
                 return;
             }
 
             loadSessions().then(sessions => {
-                let detailedSessions = addExtraDataToSessions(sessions);
-                let filteredSessions = filterSessionsByCategory(detailedSessions, statsPage.categorySelect.value);
-                filteredSessions = filterSessionsByYears(filteredSessions, statsPage.yearSelect.selectedMode, statsPage.yearSelect.selectedYears);
+                let filteredSessions = filterSessionsByCategoryAndYear(addExtraDataToSessions(sessions), category, mode, years);
                 // TODO: apply extra filters
                 // filteredSessions = filterSessionsByPlatform(filteredSessions, '', []);
                 // filteredSessions = filterSessionsByStorefront(filteredSessions, '', []);
@@ -1138,7 +1138,9 @@
             return stat;
         }
 
-        const refContainer = userStats.querySelector('.content_50');
+        const refContainer = statsPage.categorySelect.value === 'user_beat'
+            ? userStats.querySelector('.content_50')
+            : userStats.querySelectorAll('.content_100')[2];
         if (!refContainer)
             return;
 
@@ -1234,27 +1236,18 @@
     /**
      * @param {Session []} sessions 
      * @param {'user_catalog' | 'user_beat' | 'game_date'} category 
-     */
-    function filterSessionsByCategory(sessions, category) {
-        // TODO: Implement filter
-        return sessions;
-    }
-
-    /**
-     * @param {Session []} sessions 
      * @param {'include' | 'exclude'} mode 
      * @param {Integer []} years 
      */
-    function filterSessionsByYears(sessions, mode, years) {
-        console.log(mode);
-
+    function filterSessionsByCategoryAndYear(sessions, category, mode, years) {
         if (years.length === 0)
             return sessions;
 
         return sessions.filter(session => {
+            const year = category === 'user_beat' ? session.date.getFullYear() : session.game.release_year;
             if (mode === 'include')
-                return years.indexOf(session.date.getFullYear()) >= 0;
-            return years.indexOf(session.date.getFullYear()) === -1;
+                return years.indexOf(year) >= 0;
+            return years.indexOf(year) === -1;
         });
     }
 
