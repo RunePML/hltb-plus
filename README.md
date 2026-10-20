@@ -7,8 +7,8 @@ Go to the __Greasy Fork__ [link](https://greasyfork.org/es/scripts/583271-hltb) 
 ## V0.9.8 - 2026-10-21
 ### Added
 - __Journal__ autoreloads after __Importing/Syncing__ data.
-- Applies __Year__ filter to user the user stats displayed on the __Stats__ tab.
-- __Time Summary__ section added to __Stats__ tab.
+- __Sessions summary__ section added to __Stats__ tab.
+- Applies __Type__, __Year__, __Platform__ and __Storefront__ filters to the new __Sessions summary__ section.
 
 ### Fixed
 - Many features were broken after the last HLTB page update. Now everything works again.
