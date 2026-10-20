@@ -38,6 +38,7 @@
         categorySelect: null,
         yearSelect: null,
         platformSelect: null,
+        storefrontSelect: null,
     }
 
     let options = {
@@ -1031,9 +1032,18 @@
         const updateUserStats = (wait) => {
             const category = statsPage.categorySelect.value;
             const yearMode = statsPage.yearSelect.selectedMode;
-            const years = statsPage.yearSelect.selectedYears;
+            const years = statsPage.yearSelect.selectedYears.map(year => Number.parseInt(year));
             const platformMode = statsPage.platformSelect.selectedMode;
             const platforms = statsPage.platformSelect.selectedPlatforms;
+            const storefrontMode = statsPage.storefrontSelect.selectedMode;
+            const storefronts = statsPage.storefrontSelect.selectedStorefronts;
+
+            /**
+             * TODO: Fix category mode
+             * user_catalog: All games, beaten or not with the selected filters
+             * user_beat: games beaten with the selected filters
+             * game_date: games beaten that where released at the selected years with the selected filters
+             */
             if (category === 'user_catalog') {
                 clearUserStats();
                 return;
@@ -1042,95 +1052,83 @@
             loadSessions().then(sessions => {
                 let filteredSessions = filterSessionsByCategoryAndYear(addExtraDataToSessions(sessions), category, yearMode, years);
                 filteredSessions = filterSessionsByPlatform(filteredSessions, platformMode, platforms);
-                // TODO: apply extra filters
-                // filteredSessions = filterSessionsByStorefront(filteredSessions, '', []);
+                filteredSessions = filterSessionsByStorefront(filteredSessions, storefrontMode, storefronts);
                 clearUserStats();
                 addUserTimeStats(filteredSessions, wait);
                 addCompletionDateToUserTitleLists(filteredSessions, wait);
             });
         }
 
-        const getSelectedYears = (callback) => {
+        const initializeSelectedOptions = (select, selectedKey, callback) => {
+            const { wrapper } = select;
+
             setTimeout(() => {
-                const modeInputs = statsPage.yearSelect.wrapper.querySelectorAll('label[class*="__mode_option"] input');
-                const yearsElements = statsPage.yearSelect.wrapper.querySelectorAll('label[class*="__option"]');
-                if (modeInputs.length === 0)
+                const modeInputs = wrapper.querySelectorAll(
+                    'label[class*="__mode_option"] input'
+                );
+
+                if (modeInputs.length === 0 || wrapper.classList.contains('events_initialized'))
                     return;
 
-                modeInputs.forEach(modeInput => {
-                    modeInput.addEventListener('change', event => {
-                        statsPage.yearSelect.selectedMode = event.target.parentElement.querySelector('span').innerText === 'Include' ? 'include' : 'exclude';
+                wrapper.classList.add('events_initialized');
+                wrapper.addEventListener('change', event => {
+                    const target = event.target;
+
+                    // Selection mode changed.
+                    if (target.matches('label[class*="__mode_option"] input')) {
+                        const mode = target.parentElement.querySelector('span').innerText;
+                        select.selectedMode = mode === 'Include' ? 'include' : 'exclude';
                         callback();
-                    });
+                        return;
+                    }
+
+                    const option = target.closest('label[class*="__option"]');
+                    if (!option || !wrapper.contains(option))
+                        return;
+
+                    const input = option.querySelector('input');
+                    const value = option.querySelector('span').innerText;
+                    const selected = select[selectedKey];
+                    const index = selected.indexOf(value);
+
+                    if (input.checked && index === -1)
+                        selected.push(value);
+                    else if (!input.checked && index !== -1)
+                        selected.splice(index, 1);
+
+                    callback();
                 });
 
-                yearsElements.forEach(yearElement => {
-                    yearElement.addEventListener('change', () => {
-                        const checked = yearElement.querySelector('input').checked;
-                        const year = Number.parseInt(yearElement.querySelector('span').innerText);
-                        const yearIndex = statsPage.yearSelect.selectedYears.indexOf(year);
+                wrapper.addEventListener('click', event => {
+                    const clearButton = event.target.closest(
+                        'button[class*="__clear_button"]'
+                    );
 
-                        if (checked && yearIndex === -1)
-                            statsPage.yearSelect.selectedYears.push(year);
+                    if (!clearButton || !wrapper.contains(clearButton)) return;
 
-                        if (!checked && yearIndex >= 0)
-                            statsPage.yearSelect.selectedYears.splice(yearIndex, 1);
-
-                        const clearButton = statsPage.yearSelect.wrapper.querySelector('button[class*="__clear_button"]');
-                        if (clearButton && !clearButton.classList.contains('events_initialized')) {
-                            clearButton.addEventListener('click', () => {
-                                statsPage.yearSelect.selectedYears = [];
-                                callback();
-                            });
-                            clearButton.classList.add('events_initialized');
-                        }
-
-                        callback();
-                    });
+                    select[selectedKey] = [];
+                    callback();
                 });
             }, 100);
         };
 
-        const getSelectedPlatforms = (callback) => {
-            setTimeout(() => {
-                const modeInputs = statsPage.platformSelect.wrapper.querySelectorAll('label[class*="__mode_option"] input');
-                const platformsElements = statsPage.platformSelect.wrapper.querySelectorAll('label[class*="__option"]');
-                if (modeInputs.length === 0)
-                    return;
+        const getSelectedYears = (callback) => initializeSelectedOptions(
+            statsPage.yearSelect,
+            'selectedYears',
+            callback
+        );
 
-                modeInputs.forEach(modeInput => {
-                    modeInput.addEventListener('change', event => {
-                        statsPage.platformSelect.selectedMode = event.target.parentElement.querySelector('span').innerText === 'Include' ? 'include' : 'exclude';
-                        callback();
-                    });
-                });
+        const getSelectedPlatforms = (callback) => initializeSelectedOptions(
+            statsPage.platformSelect,
+            'selectedPlatforms',
+            callback
+        );
 
-                platformsElements.forEach(platformElement => {
-                    platformElement.addEventListener('change', () => {
-                        const checked = platformElement.querySelector('input').checked;
-                        const platform = platformElement.querySelector('span').innerText;
-                        const platformIndex = statsPage.platformSelect.selectedPlatforms.indexOf(platform);
-
-                        if (checked && platformIndex === -1)
-                            statsPage.platformSelect.selectedPlatforms.push(platform);
-
-                        if (!checked && platformIndex >= 0)
-                            statsPage.platformSelect.selectedPlatforms.splice(platformIndex, 1);
-
-                        const clearButton = statsPage.platformSelect.wrapper.querySelector('button[class*="__clear_button"]');
-                        if (clearButton && !clearButton.classList.contains('events_initialized')) {
-                            clearButton.addEventListener('click', () => {
-                                statsPage.platformSelect.selectedPlatforms = [];
-                                callback();
-                            });
-                            clearButton.classList.add('events_initialized');
-                        }
-
-                        callback();
-                    });
-                });
-            }, 100);
-        };
+        const getSelectedStorefronts = (callback) => initializeSelectedOptions(
+            statsPage.storefrontSelect,
+            'selectedStorefronts',
+            callback
+        );
 
         statsPage.categorySelect = userStatsForm.querySelector('select[name="showcat"]');
         statsPage.categorySelect.addEventListener('change', () => updateUserStats(true));
@@ -1153,6 +1151,15 @@
         };
         statsPage.platformSelect.button.addEventListener('click', () => {
             getSelectedPlatforms(() => updateUserStats(true));
+        });
+        statsPage.storefrontSelect = {
+            wrapper: selectWrappers[2],
+            button: selectWrappers[2].querySelector('.multiselect_trigger'),
+            selectedMode: 'include',
+            selectedStorefronts: []
+        };
+        statsPage.storefrontSelect.button.addEventListener('click', () => {
+            getSelectedStorefronts(() => updateUserStats(true));
         });
 
         updateUserStats(false);
@@ -1201,6 +1208,7 @@
             return stat;
         }
 
+        // TODO: Find a more reliable of getting a refContainer
         const refContainer = statsPage.categorySelect.value === 'user_beat'
             ? userStats.querySelector('.content_50')
             : userStats.querySelectorAll('.content_100')[2];
@@ -1276,6 +1284,7 @@
         return sessions.map(session => {
             const game = games.filter(game => game.id == session.game.link)[0];
             if (game) {
+                session.game.date_added = game.date_added;
                 session.game.date_complete = game.date_complete;
                 session.game.game_id = game.game_id;
                 session.game.platform = game.platform;
@@ -1323,7 +1332,7 @@
 
         return sessions.filter(session => {
             const platform = session.game.platform;
-            return mode === 'include' ? platforms.indexOf(session.game.platform) >= 0 : platforms.indexOf(session.game.platform) === -1;
+            return mode === 'include' ? platforms.indexOf(platform) >= 0 : platforms.indexOf(platform) === -1;
         });
     }
 
@@ -1333,8 +1342,13 @@
      * @param {String []} storefronts 
      */
     function filterSessionsByStorefront(sessions, mode, storefronts) {
-        // TODO: Implement filter
-        return sessions;
+        if (storefronts.length === 0)
+            return sessions;
+
+        return sessions.filter(session => {
+            const storefront = session.game.play_storefront;
+            return mode === 'include' ? storefronts.indexOf(storefront) >= 0 : storefronts.indexOf(storefront) === -1;
+        });
     }
 
     function twoDigits(num) {
