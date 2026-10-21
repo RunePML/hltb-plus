@@ -65,8 +65,10 @@
                 return;
             } else if (maxAttempts !== -1) {
                 attempts++;
-                if (attempts > maxAttempts)
+                if (attempts > maxAttempts) {
                     clearInterval(waitInterval);
+                    console.error('waitForElement(): Element with selector', selector, 'not found');
+                }
             }
         }, 100);
     }
@@ -144,7 +146,7 @@
     }
 
     function onUserPage() {
-        waitForElement('[class^="UserNavigation-module"]', navigationElement => {
+        waitForElement('[class*="_profile_nav"]', navigationElement => {
             if (options.journalEnabled)
                 addJournalTab(navigationElement);
         });
@@ -152,9 +154,8 @@
 
     function onGamesPage() {
         waitForElement('.form_button.back_red', resetFiltersBtn => {
-            if (document.querySelector('#' + ID_PREFIX + 'export_btn')) {
+            if (document.querySelector('#' + ID_PREFIX + 'export_btn'))
                 return;
-            }
 
             const buttonsContainer = resetFiltersBtn.parentElement;
 
@@ -206,12 +207,12 @@
     }
 
     function isUserLoggedIn() {
-        return document.querySelectorAll('[class*="UserTools"]').length !== null;
+        return document.querySelector('[class*="_user_tools_label"]') !== null;
     }
 
     function getUsername() {
         return isUserLoggedIn()
-            ? document.querySelector('.label[class*="UserTools"]').innerText
+            ? document.querySelector('[class*="_user_tools_label"]').innerText
             : null;
     }
 
@@ -226,14 +227,14 @@
         if (!isUserLoggedIn)
             return;
 
-        const userLogin = document.querySelector('[class*="__login"]');
+        const userLogin = document.querySelector('[class*="_login"]');
         if (userLogin.classList.contains('events_initialized'))
             return;
 
         userLogin.classList.add('events_initialized');
         userLogin.addEventListener('click', () => {
             setTimeout(() => {
-                const userProfileOptions = document.querySelector('[class*="UserNavigation-module"] [class*="nav_profile_load"] ul');
+                const userProfileOptions = document.querySelector('[class*="nav_profile_load"] ul');
                 if (userProfileOptions) {
                     const li = document.createElement('li');
                     userProfileOptions.insertBefore(li, userProfileOptions.childNodes[5]);
@@ -267,12 +268,7 @@
                 timerInterval = setInterval(() => {
                     pageTitle.innerText = progressText.innerText + ' | ' + pageTitleText;
                     editPage.progressTimer.timerRunning = true;
-
-                    if (editPage.progressTimer.timerPaused) {
-                        setMainBackgroundColor('rgba(203, 58, 59, 0.6)');
-                    } else {
-                        setMainBackgroundColor('rgba(61, 169, 73, 0.6)');
-                    }
+                    setMainBackgroundColor(editPage.progressTimer.timerPaused ? 'rgba(203, 58, 59, 0.6)' : 'rgba(61, 169, 73, 0.6)');
                 }, 500);
                 console.log('Timer running');
             } else {
@@ -404,7 +400,7 @@
                     { label: 'Back to Edit', action: () => { setTimeout(() => { window.location.href = editLink; }, 1000); } }
                 ]);
 
-            if (options.journalEnabled) {
+            if (options.journalEnabled)
                 addSession(new Session(
                     game,
                     new Date(new Date().getTime() - (totalSeconds * 1000)),
@@ -412,7 +408,6 @@
                     listsFromTo,
                     scoreFromTo
                 ));
-            }
         });
     }
 
@@ -710,13 +705,13 @@
                     switch (importMode) {
                         case 'overwrite':
                             saveSessions(journal);
-                            showNotification('Journal data has been imported successfully, reload to see the changes.', [
-                                { label: 'Reload', action: () => { location.reload(); } }
-                            ]);
+                            showNotification('Journal data has been imported successfully.');
+                            reloadJournalDialog();
                             break;
                         case 'merge':
                             const newEntries = await mergeJournals(journal);
-                            showNotification(newEntries + ' new entries added to the Journal');
+                            showNotification(newEntries + ' new entries added to the Journal.');
+                            reloadJournalDialog();
                             break;
                     }
                 } catch (error) {
@@ -770,9 +765,8 @@
                     showNotification(removedEntries + ' entries removed from the Journal');
             }
             loadSessions().then(loadedSessions => pushSyncJournalData(loadedSessions, () => {
-                showNotification('Journal data synchronized successfully, reload to see the changes.', [
-                    { label: 'Reload', action: () => { location.reload(); } }
-                ]);
+                showNotification('Journal data synchronized successfully.');
+                reloadJournalDialog();
                 closeSpinner();
             }));
         });
@@ -947,6 +941,11 @@
         removejournalContent();
         journalDialogContainer.remove();
         journalDialogContainer = null;
+    }
+
+    function reloadJournalDialog() {
+        closeJournalDialog();
+        openJournalDialog();
     }
 
     function addJournalContent(container) {
