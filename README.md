@@ -4,11 +4,15 @@ A userscripts for HowLongToBeat with some QoL improvements
 ## Installation
 Go to the __Greasy Fork__ [link](https://greasyfork.org/es/scripts/583271-hltb) and click the __"Install this script"__ button.
 
+## V0.9.9 - 2026-??-??
+### Added
+- __Sessions summary__ section added to __Stats__ tab.
+- Applies __Type__, __Year__, __Platform__ and __Storefront__ filters to the new __Sessions Summary__ section.
+- Adds __Sessions__, __Hours by Month__, __Hours by Week Day__ and __Hours by Platform__ summaries to __Sessions Summary__ section
+
 ## V0.9.8 - 2026-10-21
 ### Added
 - __Journal__ autoreloads after __Importing/Syncing__ data.
-- __Sessions summary__ section added to __Stats__ tab.
-- Applies __Type__, __Year__, __Platform__ and __Storefront__ filters to the new __Sessions summary__ section.
 
 ### Fixed
 - Many features were broken after the last HLTB page update. Now everything works again.

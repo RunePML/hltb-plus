@@ -1055,7 +1055,7 @@
 
             setTimeout(() => {
                 const modeInputs = wrapper.querySelectorAll(
-                    'label[class*="__mode_option"] input'
+                    'label[class*="_mode_option"] input'
                 );
 
                 if (modeInputs.length === 0 || wrapper.classList.contains('events_initialized'))
@@ -1066,14 +1066,14 @@
                     const target = event.target;
 
                     // Selection mode changed.
-                    if (target.matches('label[class*="__mode_option"] input')) {
+                    if (target.matches('label[class*="_mode_option"] input')) {
                         const mode = target.parentElement.querySelector('span').innerText;
                         select.selectedMode = mode === 'Include' ? 'include' : 'exclude';
                         callback();
                         return;
                     }
 
-                    const option = target.closest('label[class*="__option"]');
+                    const option = target.closest('label[class*="_option"]');
                     if (!option || !wrapper.contains(option))
                         return;
 
@@ -1092,7 +1092,7 @@
 
                 wrapper.addEventListener('click', event => {
                     const clearButton = event.target.closest(
-                        'button[class*="__clear_button"]'
+                        'button[class*="_clear_button"]'
                     );
 
                     if (!clearButton || !wrapper.contains(clearButton)) return;
@@ -1165,6 +1165,50 @@
         });
     }
 
+    function createStatContainer(parent, width, title) {
+        const wrapper = document.createElement('div');
+        wrapper.classList.add('content_' + width);
+        parent.appendChild(wrapper);
+
+        if (title) {
+            const header = document.createElement('h2');
+            header.classList.add('head_padding', 'center');
+            header.innerText = title;
+            wrapper.appendChild(header);
+        }
+
+        const container = document.createElement('div');
+        container.classList.add('in', 'back_primary', 'shadow_border');
+        wrapper.appendChild(container);
+
+        return container;
+    }
+
+    function createStatsRow() {
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.flexWrap = 'balance';
+        row.style.justifyContent = 'space-around';
+        return row;
+    }
+
+    function createSimpleStat(label, value, color) {
+        const stat = document.createElement('div');
+        stat.style.textAlign = 'center';
+        stat.style.padding = '2% 0';
+
+        const valueElement = document.createElement('h1');
+        valueElement.classList.add('text_' + (color || 'pink'));
+        valueElement.innerText = value;
+        stat.appendChild(valueElement);
+
+        const labelElement = document.createElement('h4');
+        labelElement.innerText = label;
+        stat.appendChild(labelElement);
+
+        return stat;
+    }
+
     function clearSessionsStats() {
         document.getElementById('sessions_stats')?.remove();
     }
@@ -1174,11 +1218,13 @@
             const sessionsStatsContainer = document.createElement('div');
             sessionsStatsContainer.id = 'sessions_stats';
             sessionsStatsContainer.classList.add('content_100', 'back_form', 'shadow_box');
+            sessionsStatsContainer.style.overflow = 'auto';
+            sessionsStatsContainer.style.paddingBottom = '1%';
             userStats.parentElement.insertBefore(sessionsStatsContainer, userStats);
 
             const sessionsStatsTitle = document.createElement('h1');
             sessionsStatsTitle.classList.add('head_padding', 'center');
-            sessionsStatsTitle.innerText = 'Sessions summary';
+            sessionsStatsTitle.innerText = 'Sessions Summary';
             sessionsStatsContainer.appendChild(sessionsStatsTitle);
 
             addSessionsStatsSummary(sessionsStatsContainer, sessions);
@@ -1192,30 +1238,9 @@
     }
 
     function addSessionsStatsSummary(sessionsStatsContainer, sessions) {
-        const createStat = (label, value) => {
-            const stat = document.createElement('div');
-            stat.style.textAlign = 'center';
-            stat.style.padding = '2% 0';
-
-            const valueElement = document.createElement('h1');
-            valueElement.classList.add('text_pink');
-            valueElement.innerText = value;
-            stat.appendChild(valueElement);
-
-            const labelElement = document.createElement('h4');
-            labelElement.innerText = label;
-            stat.appendChild(labelElement);
-
-            return stat;
-        }
-
         const wrapper = document.createElement('div');
         wrapper.classList.add('content_100');
         sessionsStatsContainer.appendChild(wrapper);
-
-        const contentBreak = document.createElement('div');
-        contentBreak.classList.add('content_break');
-        sessionsStatsContainer.appendChild(contentBreak);
 
         const container = document.createElement('div');
         container.classList.add('in', 'back_primary', 'shadow_border', 'center');
@@ -1239,13 +1264,60 @@
         const d = formatDuration(totalTime / 1000);
         let timeCount = d.h + 'h ' + d.m + 'm ' + d.s + 's';
 
-        summaryGrid.appendChild(createStat('Sessions', sessionsCount));
-        summaryGrid.appendChild(createStat('Games played', gamesCount));
-        summaryGrid.appendChild(createStat('Total play time', timeCount));
+        summaryGrid.appendChild(createSimpleStat('Sessions', sessionsCount));
+        summaryGrid.appendChild(createSimpleStat('Games played', gamesCount));
+        summaryGrid.appendChild(createSimpleStat('Total play time', timeCount));
     }
 
-    function addSessionsStatsDetailed(userStats, sessions) {
-        // TODO
+    function addSessionsStatsDetailed(sessionsStatsContainer, sessions) {
+        const monthTime = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        const weekdayTime = [0, 0, 0, 0, 0, 0, 0];
+        const platformTime = {};
+        sessions.forEach(session => {
+            monthTime[session.date.getMonth()] += session.duration;
+            weekdayTime[session.date.getDay()] += session.duration;
+            const platform = session.game.platform ? session.game.platform.replaceAll(' ', '_') : 'Unknown';
+
+            if (!platformTime[platform])
+                platformTime[platform] = 0;
+            platformTime[platform] += session.duration;
+        });
+
+        // Sessions time split by month
+        const monthTimeContainer = createStatContainer(sessionsStatsContainer, 100, 'Hours by Month');
+        const monthTimeRow = createStatsRow();
+        monthTimeContainer.appendChild(monthTimeRow);
+
+
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        for (let i = 0; i < 12; i++) {
+            const hours = Math.round(monthTime[i] / 3600000);
+            monthTimeRow.appendChild(createSimpleStat(monthNames[i].substring(0, 3), hours, 'blue'));
+        }
+
+        // Sessions time split by weekday
+        const weekdayTimeContainer = createStatContainer(sessionsStatsContainer, 50, 'Hours by Week Day');
+        const weekdayTimeRow = createStatsRow();
+        weekdayTimeContainer.appendChild(weekdayTimeRow);
+
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        for (let i = 0; i < 7; i++) {
+            const dayIndex = (i + 1) % 7;
+            const hours = Math.round(weekdayTime[(i + 1) % 7] / 3600000);
+            weekdayTimeRow.appendChild(createSimpleStat(dayNames[dayIndex].substring(0, 3), hours, 'orange'))
+        }
+
+        // Sessions time split by platform
+        const platformTimeContainer = createStatContainer(sessionsStatsContainer, 50, 'Hours by Platform');
+        const platformTimeRow = createStatsRow();
+        platformTimeContainer.appendChild(platformTimeRow);
+
+        const platformNames = Object.keys(platformTime);
+        for (let i = 0; i < platformNames.length; i++) {
+            const name = platformNames[i].replaceAll('_', ' ');
+            const hours = Math.round(platformTime[platformNames[i]] / 3600000);
+            platformTimeRow.appendChild(createSimpleStat(name, hours, 'purple'));
+        }
     }
 
     function addCompletionDateToUserTitleLists(sessions, wait) {
