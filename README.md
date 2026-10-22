@@ -9,7 +9,9 @@ Go to the __Greasy Fork__ [link](https://greasyfork.org/es/scripts/583271-hltb) 
 - __Sessions summary__ section added to __Stats__ page.
   - Applies __Type__, __Year__, __Platform__ and __Storefront__ filters to the new __Sessions Summary__ section.
   - Adds __Sessions__, __Hours by Month__, __Hours by Week Day__ and __Hours by Platform__ summaries to __Sessions Summary__ section.
-- Adds __Completion date__ column to __Title List__ on __Stats__ page.
+- New columns added to __Title List__.
+  - Adds __Completion date__ column.
+  - Adds __Sessions count__ column.
 
 ## V0.9.8 - 2026-10-21
 ### Added

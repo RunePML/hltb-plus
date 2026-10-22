@@ -1048,7 +1048,7 @@
                 addSessionsStats(filteredSessions, wait);
 
                 const games = getPageProps()?.userStats.gameList;
-                addCompletionDateToUserTitleLists(games, wait);
+                addTitleListStats(games, sessions, wait);
             });
         }
 
@@ -1322,21 +1322,17 @@
         }
     }
 
-    function addCompletionDateToUserTitleLists(games, wait) {
-        const addDate = (userStats) => {
-            updateCompletionDateTitleList(userStats, games);
-        };
-
+    function addTitleListStats(games, sessions, wait) {
         if (wait)
-            onStatsLoad(userStats => addDate(userStats));
+            onStatsLoad(userStats => addTitleListStatsColumns(userStats, games, sessions));
         else
-            addDate(document.getElementById('user_stats'));
+            addTitleListStatsColumns(document.getElementById('user_stats'), games, sessions);
     }
 
-    function updateCompletionDateTitleList(userStats, games) {
+    function addTitleListStatsColumns(userStats, games, sessions) {
         const paginationButtons = userStats.querySelectorAll('[class*="pagination_primary"] button');
         paginationButtons.forEach(button => button.addEventListener('click', () =>
-            setTimeout(() => updateCompletionDateTitleList(userStats, games), 100)));
+            setTimeout(() => addTitleListStatsColumns(userStats, games, sessions), 100)));
 
         const titleList = userStats.querySelector('[class*="user_game_list"]');
         const header = titleList.querySelector('thead tr');
@@ -1347,20 +1343,36 @@
             completionDateHeader.innerText = 'Completion date';
             header.appendChild(completionDateHeader);
         }
+        let sessionsHeader = titleList.querySelector('.sessions-header');
+        if (!sessionsHeader) {
+            sessionsHeader = document.createElement('th');
+            sessionsHeader.classList.add('sessions-header', 'global_padding', 'right');
+            sessionsHeader.innerText = 'Sessions';
+            header.appendChild(sessionsHeader);
+        }
 
         const rows = titleList.querySelectorAll('tbody tr.spreadsheet');
         rows.forEach(row => {
             const href = row.querySelector('a').href.split('/');
             const gameId = Number.parseInt(href[href.length - 1]);
             const game = games.find(g => g.game_id === gameId);
+            const gameSessions = sessions.filter(session => session.game.game_id === gameId);
 
-            let completionDate = row.querySelector('.completion-date');
-            if (!completionDate) {
-                completionDate = document.createElement('td');
-                completionDate.classList.add('completion-date', 'right');
-                row.appendChild(completionDate);
+            let completionDateColumn = row.querySelector('.completion-date');
+            if (!completionDateColumn) {
+                completionDateColumn = document.createElement('td');
+                completionDateColumn.classList.add('completion-date', 'right');
+                row.appendChild(completionDateColumn);
             }
-            completionDate.innerText = game.date_complete !== '0000-00-00' ? game.date_complete : '---';
+            completionDateColumn.innerText = game.date_complete !== '0000-00-00' ? game.date_complete : '---';
+
+            let sessionsColumn = row.querySelector('.sessions');
+            if (!sessionsColumn) {
+                sessionsColumn = document.createElement('td');
+                sessionsColumn.classList.add('sessions', 'right');
+                row.appendChild(sessionsColumn);
+            }
+            sessionsColumn.innerText = gameSessions.length === 0 ? '---' : gameSessions.length;
         });
     }
 
