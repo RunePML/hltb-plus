@@ -1046,7 +1046,9 @@
                 filteredSessions = filterSessionsByPlatform(filteredSessions, platformMode, platforms);
                 filteredSessions = filterSessionsByStorefront(filteredSessions, storefrontMode, storefronts);
                 addSessionsStats(filteredSessions, wait);
-                addCompletionDateToUserTitleLists(filteredSessions, wait);
+
+                const games = getPageProps()?.userStats.gameList;
+                addCompletionDateToUserTitleLists(games, wait);
             });
         }
 
@@ -1320,9 +1322,9 @@
         }
     }
 
-    function addCompletionDateToUserTitleLists(sessions, wait) {
+    function addCompletionDateToUserTitleLists(games, wait) {
         const addDate = (userStats) => {
-            // TODO
+            updateCompletionDateTitleList(userStats, games);
         };
 
         if (wait)
@@ -1331,11 +1333,40 @@
             addDate(document.getElementById('user_stats'));
     }
 
+    function updateCompletionDateTitleList(userStats, games) {
+        const paginationButtons = userStats.querySelectorAll('[class*="pagination_primary"] button');
+        paginationButtons.forEach(button => button.addEventListener('click', () =>
+            setTimeout(() => updateCompletionDateTitleList(userStats, games), 100)));
+
+        const titleList = userStats.querySelector('[class*="user_game_list"]');
+        const header = titleList.querySelector('thead tr');
+        let completionDateHeader = titleList.querySelector('.completion-date-header');
+        if (!completionDateHeader) {
+            completionDateHeader = document.createElement('th');
+            completionDateHeader.classList.add('completion-date-header', 'global_padding', 'right');
+            completionDateHeader.innerText = 'Completion date';
+            header.appendChild(completionDateHeader);
+        }
+
+        const rows = titleList.querySelectorAll('tbody tr.spreadsheet');
+        rows.forEach(row => {
+            const href = row.querySelector('a').href.split('/');
+            const gameId = Number.parseInt(href[href.length - 1]);
+            const game = games.find(g => g.game_id === gameId);
+
+            let completionDate = row.querySelector('.completion-date');
+            if (!completionDate) {
+                completionDate = document.createElement('td');
+                completionDate.classList.add('completion-date', 'right');
+                row.appendChild(completionDate);
+            }
+            completionDate.innerText = game.date_complete !== '0000-00-00' ? game.date_complete : '---';
+        });
+    }
 
     function normalizeDate(date) {
         return new Date(date.getFullYear(), date.getMonth(), date.getDate());
     }
-
 
     function getPageProps() {
         return JSON.parse(document.querySelector('script#__NEXT_DATA__').innerHTML).props.pageProps;
