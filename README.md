@@ -4,7 +4,7 @@ A userscripts for HowLongToBeat with some QoL improvements
 ## Installation
 Go to the __Greasy Fork__ [link](https://greasyfork.org/es/scripts/583271-hltb) and click the __"Install this script"__ button.
 
-## V0.9.9 - 2026-??-??
+## V0.9.9 - 2026-10-28
 ### Added
 - __Sessions summary__ section added to __Stats__ page.
   - Applies __Type__, __Year__, __Platform__ and __Storefront__ filters to the new __Sessions Summary__ section.
