@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         HLTB+
 // @namespace    http://tampermonkey.net/
-// @version      0.9.8
+// @version      0.9.9
 // @description  QoL improvements for HLTB
 // @author       RunePML
 // @match        https://howlongtobeat.com/*
@@ -33,6 +33,13 @@
         },
         score: 0
     };
+
+    const statsPage = {
+        categorySelect: null,
+        yearSelect: null,
+        platformSelect: null,
+        storefrontSelect: null,
+    }
 
     let options = {
         journalEnabled: false,
@@ -124,6 +131,8 @@
                     onGamesPage();
                 } else if (currentPage[2] && currentPage[2] === 'options') {
                     onOptionsPage();
+                } else if (currentPage[2] && currentPage[2] === 'stats') {
+                    onStatsPage();
                 }
                 break;
             default:
@@ -203,6 +212,12 @@
         waitForElement('.contain_out:nth-child(2) .contain_in', optionsContainer => {
             const optionsColumns = optionsContainer.querySelectorAll('.content_33');
             createOptionsPanel(optionsColumns[optionsColumns.length - 1]);
+        });
+    }
+
+    function onStatsPage() {
+        waitForElement('form[name="userstats"]', userStatsForm => {
+            attachUserStatsEvents(userStatsForm);
         });
     }
 
@@ -1013,9 +1028,377 @@
         journalContainer = null;
     }
 
+    function attachUserStatsEvents(userStatsForm) {
+        const updateUserStats = (wait) => {
+            clearSessionsStats();
+
+            const category = statsPage.categorySelect.value;
+            const yearMode = statsPage.yearSelect.selectedMode;
+            const years = statsPage.yearSelect.selectedYears.map(year => Number.parseInt(year));
+            const platformMode = statsPage.platformSelect.selectedMode;
+            const platforms = statsPage.platformSelect.selectedPlatforms;
+            const storefrontMode = statsPage.storefrontSelect.selectedMode;
+            const storefronts = statsPage.storefrontSelect.selectedStorefronts;
+
+            loadSessions().then(sessions => {
+                let filteredSessions = filterSessionsByCategory(addExtraDataToSessions(sessions), category);
+                filteredSessions = filterSessionsByYear(filteredSessions, category, yearMode, years);
+                filteredSessions = filterSessionsByPlatform(filteredSessions, platformMode, platforms);
+                filteredSessions = filterSessionsByStorefront(filteredSessions, storefrontMode, storefronts);
+                addSessionsStats(filteredSessions, wait);
+
+                const games = getPageProps()?.userStats.gameList;
+                addTitleListStats(games, sessions, wait);
+            });
+        }
+
+        const initializeSelectedOptions = (select, selectedKey, callback) => {
+            const { wrapper } = select;
+
+            setTimeout(() => {
+                const modeInputs = wrapper.querySelectorAll(
+                    'label[class*="_mode_option"] input'
+                );
+
+                if (modeInputs.length === 0 || wrapper.classList.contains('events_initialized'))
+                    return;
+
+                wrapper.classList.add('events_initialized');
+                wrapper.addEventListener('change', event => {
+                    const target = event.target;
+
+                    // Selection mode changed.
+                    if (target.matches('label[class*="_mode_option"] input')) {
+                        const mode = target.parentElement.querySelector('span').innerText;
+                        select.selectedMode = mode === 'Include' ? 'include' : 'exclude';
+                        callback();
+                        return;
+                    }
+
+                    const option = target.closest('label[class*="_option"]');
+                    if (!option || !wrapper.contains(option))
+                        return;
+
+                    const input = option.querySelector('input');
+                    const value = option.querySelector('span').innerText;
+                    const selected = select[selectedKey];
+                    const index = selected.indexOf(value);
+
+                    if (input.checked && index === -1)
+                        selected.push(value);
+                    else if (!input.checked && index !== -1)
+                        selected.splice(index, 1);
+
+                    callback();
+                });
+
+                wrapper.addEventListener('click', event => {
+                    const clearButton = event.target.closest(
+                        'button[class*="_clear_button"]'
+                    );
+
+                    if (!clearButton || !wrapper.contains(clearButton)) return;
+
+                    select[selectedKey] = [];
+                    callback();
+                });
+            }, 100);
+        };
+
+        const getSelectedYears = (callback) => initializeSelectedOptions(
+            statsPage.yearSelect,
+            'selectedYears',
+            callback
+        );
+
+        const getSelectedPlatforms = (callback) => initializeSelectedOptions(
+            statsPage.platformSelect,
+            'selectedPlatforms',
+            callback
+        );
+
+        const getSelectedStorefronts = (callback) => initializeSelectedOptions(
+            statsPage.storefrontSelect,
+            'selectedStorefronts',
+            callback
+        );
+
+        statsPage.categorySelect = userStatsForm.querySelector('select[name="showcat"]');
+        statsPage.categorySelect.addEventListener('change', () => updateUserStats(true));
+
+        const selectWrappers = userStatsForm.querySelectorAll('.multiselect_wrapper');
+        statsPage.yearSelect = {
+            wrapper: selectWrappers[0],
+            button: selectWrappers[0].querySelector('.multiselect_trigger'),
+            selectedMode: 'include',
+            selectedYears: [],
+        };
+        statsPage.yearSelect.button.addEventListener('click', () => {
+            getSelectedYears(() => updateUserStats(true));
+        });
+        statsPage.platformSelect = {
+            wrapper: selectWrappers[1],
+            button: selectWrappers[1].querySelector('.multiselect_trigger'),
+            selectedMode: 'include',
+            selectedPlatforms: []
+        };
+        statsPage.platformSelect.button.addEventListener('click', () => {
+            getSelectedPlatforms(() => updateUserStats(true));
+        });
+        statsPage.storefrontSelect = {
+            wrapper: selectWrappers[2],
+            button: selectWrappers[2].querySelector('.multiselect_trigger'),
+            selectedMode: 'include',
+            selectedStorefronts: []
+        };
+        statsPage.storefrontSelect.button.addEventListener('click', () => {
+            getSelectedStorefronts(() => updateUserStats(true));
+        });
+
+        updateUserStats(false);
+    }
+
+    function onStatsLoad(callback) {
+        waitForElement('#user_stats .loading_bar', loadingBar => {
+            waitForElement('#user_stats h1, #user_stats .global_padding.center', content => {
+                if (content.tagName === 'H1')
+                    callback(content.parentElement);
+            });
+        });
+    }
+
+    function createStatContainer(parent, width, title) {
+        const wrapper = document.createElement('div');
+        wrapper.classList.add('content_' + width);
+        parent.appendChild(wrapper);
+
+        if (title) {
+            const header = document.createElement('h2');
+            header.classList.add('head_padding', 'center');
+            header.innerText = title;
+            wrapper.appendChild(header);
+        }
+
+        const container = document.createElement('div');
+        container.classList.add('in', 'back_primary', 'shadow_border');
+        wrapper.appendChild(container);
+
+        return container;
+    }
+
+    function createStatsRow() {
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.flexWrap = 'balance';
+        row.style.justifyContent = 'space-around';
+        return row;
+    }
+
+    function createSimpleStat(label, value, color) {
+        const stat = document.createElement('div');
+        stat.style.textAlign = 'center';
+        stat.style.padding = '2% 0';
+
+        const valueElement = document.createElement('h1');
+        valueElement.classList.add('text_' + (color || 'pink'));
+        valueElement.innerText = value;
+        stat.appendChild(valueElement);
+
+        const labelElement = document.createElement('h4');
+        labelElement.innerText = label;
+        stat.appendChild(labelElement);
+
+        return stat;
+    }
+
+    function clearSessionsStats() {
+        document.getElementById('sessions_stats')?.remove();
+    }
+
+    function addSessionsStats(sessions, wait) {
+        const addStats = (userStats) => {
+            const sessionsStatsContainer = document.createElement('div');
+            sessionsStatsContainer.id = 'sessions_stats';
+            sessionsStatsContainer.classList.add('content_100', 'back_form', 'shadow_box');
+            sessionsStatsContainer.style.overflow = 'auto';
+            sessionsStatsContainer.style.paddingBottom = '1%';
+            userStats.parentElement.insertBefore(sessionsStatsContainer, userStats);
+
+            const sessionsStatsTitle = document.createElement('h1');
+            sessionsStatsTitle.classList.add('head_padding', 'center');
+            sessionsStatsTitle.innerText = 'Sessions Summary';
+            sessionsStatsContainer.appendChild(sessionsStatsTitle);
+
+            addSessionsStatsSummary(sessionsStatsContainer, sessions);
+            addSessionsStatsDetailed(sessionsStatsContainer, sessions);
+        };
+
+        if (wait)
+            onStatsLoad(userStats => addStats(userStats));
+        else
+            addStats(document.getElementById('user_stats'));
+    }
+
+    function addSessionsStatsSummary(sessionsStatsContainer, sessions) {
+        const wrapper = document.createElement('div');
+        wrapper.classList.add('content_100');
+        sessionsStatsContainer.appendChild(wrapper);
+
+        const container = document.createElement('div');
+        container.classList.add('in', 'back_primary', 'shadow_border', 'center');
+        wrapper.appendChild(container);
+
+        const summaryGrid = document.createElement('div');
+        summaryGrid.style.display = 'grid';
+        summaryGrid.style.gridTemplateColumns = 'repeat(3, 1fr)';
+        container.appendChild(summaryGrid);
+
+        let gameIds = [];
+        let totalTime = 0;
+        sessions.forEach(session => {
+            if (gameIds.indexOf(session.game.link) < 0)
+                gameIds.push(session.game.link);
+            totalTime += session.duration;
+        });
+
+        let sessionsCount = sessions.length;
+        let gamesCount = gameIds.length;
+        const d = formatDuration(totalTime / 1000);
+        let timeCount = d.h + 'h ' + d.m + 'm ' + d.s + 's';
+
+        summaryGrid.appendChild(createSimpleStat('Sessions', sessionsCount));
+        summaryGrid.appendChild(createSimpleStat('Games played', gamesCount));
+        summaryGrid.appendChild(createSimpleStat('Total play time', timeCount));
+    }
+
+    function addSessionsStatsDetailed(sessionsStatsContainer, sessions) {
+        const monthTime = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        const weekdayTime = [0, 0, 0, 0, 0, 0, 0];
+        const platformTime = {};
+        sessions.forEach(session => {
+            monthTime[session.date.getMonth()] += session.duration;
+            weekdayTime[session.date.getDay()] += session.duration;
+            const platform = session.game.platform ? session.game.platform.replaceAll(' ', '_') : 'Unknown';
+
+            if (!platformTime[platform])
+                platformTime[platform] = 0;
+            platformTime[platform] += session.duration;
+        });
+
+        // Sessions time split by month
+        const monthTimeContainer = createStatContainer(sessionsStatsContainer, 100, 'Hours by Month');
+        const monthTimeRow = createStatsRow();
+        monthTimeContainer.appendChild(monthTimeRow);
+
+
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        for (let i = 0; i < 12; i++) {
+            const hours = Math.round(monthTime[i] / 3600000);
+            monthTimeRow.appendChild(createSimpleStat(monthNames[i].substring(0, 3), hours, 'blue'));
+        }
+
+        // Sessions time split by weekday
+        const weekdayTimeContainer = createStatContainer(sessionsStatsContainer, 50, 'Hours by Week Day');
+        const weekdayTimeRow = createStatsRow();
+        weekdayTimeContainer.appendChild(weekdayTimeRow);
+
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        for (let i = 0; i < 7; i++) {
+            const dayIndex = (i + 1) % 7;
+            const hours = Math.round(weekdayTime[(i + 1) % 7] / 3600000);
+            weekdayTimeRow.appendChild(createSimpleStat(dayNames[dayIndex].substring(0, 3), hours, 'orange'))
+        }
+
+        // Sessions time split by platform
+        const platformTimeContainer = createStatContainer(sessionsStatsContainer, 50, 'Hours by Platform');
+        const platformTimeRow = createStatsRow();
+        platformTimeContainer.appendChild(platformTimeRow);
+
+        const platformNames = Object.keys(platformTime);
+        for (let i = 0; i < platformNames.length; i++) {
+            const name = platformNames[i].replaceAll('_', ' ');
+            const hours = Math.round(platformTime[platformNames[i]] / 3600000);
+            platformTimeRow.appendChild(createSimpleStat(name, hours, 'purple'));
+        }
+    }
+
+    function addTitleListStats(games, sessions, wait) {
+        if (wait)
+            onStatsLoad(userStats => addTitleListStatsColumns(userStats, games, sessions));
+        else
+            addTitleListStatsColumns(document.getElementById('user_stats'), games, sessions);
+    }
+
+    function addTitleListStatsColumns(userStats, games, sessions) {
+        const paginationButtons = userStats.querySelectorAll('[class*="pagination_primary"] button');
+        paginationButtons.forEach(button => button.addEventListener('click', () =>
+            setTimeout(() => addTitleListStatsColumns(userStats, games, sessions), 100)));
+
+        const titleList = userStats.querySelector('[class*="user_game_list"]');
+        const header = titleList.querySelector('thead tr');
+        let completionDateHeader = titleList.querySelector('.completion-date-header');
+        if (!completionDateHeader) {
+            completionDateHeader = document.createElement('th');
+            completionDateHeader.classList.add('completion-date-header', 'global_padding', 'right');
+            completionDateHeader.innerText = 'Completion date';
+            header.appendChild(completionDateHeader);
+        }
+        let sessionsHeader = titleList.querySelector('.sessions-header');
+        if (!sessionsHeader) {
+            sessionsHeader = document.createElement('th');
+            sessionsHeader.classList.add('sessions-header', 'global_padding', 'right');
+            sessionsHeader.innerText = 'Sessions';
+            header.appendChild(sessionsHeader);
+        }
+
+        const rows = titleList.querySelectorAll('tbody tr.spreadsheet');
+        rows.forEach(row => {
+            const href = row.querySelector('a').href.split('/');
+            const gameId = Number.parseInt(href[href.length - 1]);
+            const game = games.find(g => g.game_id === gameId);
+            const gameSessions = sessions.filter(session => session.game.game_id === gameId);
+
+            let completionDateColumn = row.querySelector('.completion-date');
+            if (!completionDateColumn) {
+                completionDateColumn = document.createElement('td');
+                completionDateColumn.classList.add('completion-date', 'right');
+                row.appendChild(completionDateColumn);
+            }
+            completionDateColumn.innerText = game.date_complete !== '0000-00-00' ? game.date_complete : '---';
+
+            let sessionsColumn = row.querySelector('.sessions');
+            if (!sessionsColumn) {
+                sessionsColumn = document.createElement('td');
+                sessionsColumn.classList.add('sessions', 'right');
+                row.appendChild(sessionsColumn);
+            }
+            sessionsColumn.innerText = gameSessions.length === 0 ? '---' : gameSessions.length;
+        });
+    }
 
     function normalizeDate(date) {
         return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    }
+
+    function getPageProps() {
+        return JSON.parse(document.querySelector('script#__NEXT_DATA__').innerHTML).props.pageProps;
+    }
+
+    function addExtraDataToSessions(sessions) {
+        const games = getPageProps()?.userStats?.gameList || [];
+        return sessions.map(session => {
+            const game = games.filter(game => game.id == session.game.link)[0];
+            if (game) {
+                session.game.date_added = game.date_added;
+                session.game.date_complete = game.date_complete;
+                session.game.game_id = game.game_id;
+                session.game.platform = game.platform;
+                session.game.play_storefront = game.play_storefront;
+                session.game.release_year = game.release_year;
+                session.game.review_score = game.review_score;
+            }
+            return session;
+        });
     }
 
     function filterSessionsByDates(sessions, dateStart, dateEnd) {
@@ -1024,6 +1407,62 @@
         return sessions.filter(session => {
             const nDate = normalizeDate(session.date);
             return nDate >= nDateStart && nDate <= nDateEnd;
+        });
+    }
+
+    /**
+     * @param {Session []} sessions 
+     * @param {'user_catalog' | 'user_beat' | 'game_date'} category 
+     */
+    function filterSessionsByCategory(sessions, category) {
+        return category === 'user_catalog' ? sessions : sessions.filter(session => {
+            return session.game.date_complete !== '0000-00-00';
+        });
+    }
+
+    /**
+     * @param {Session []} sessions 
+     * @param {'user_catalog' | 'user_beat' | 'game_date'} category 
+     * @param {'include' | 'exclude'} mode 
+     * @param {Integer []} years 
+     */
+    function filterSessionsByYear(sessions, category, mode, years) {
+        if (years.length === 0)
+            return sessions;
+
+        return sessions.filter(session => {
+            const year = category === 'game_date' ? session.game.release_year : session.date.getFullYear();
+            return mode === 'include' ? years.indexOf(year) >= 0 : years.indexOf(year) === -1;
+        });
+    }
+
+    /**
+     * @param {Session []} sessions 
+     * @param {'include' | 'exclude'} mode 
+     * @param {String []} platforms 
+     */
+    function filterSessionsByPlatform(sessions, mode, platforms) {
+        if (platforms.length === 0)
+            return sessions;
+
+        return sessions.filter(session => {
+            const platform = session.game.platform;
+            return mode === 'include' ? platforms.indexOf(platform) >= 0 : platforms.indexOf(platform) === -1;
+        });
+    }
+
+    /**
+     * @param {Session []} sessions 
+     * @param {'include' | 'exclude'} mode 
+     * @param {String []} storefronts 
+     */
+    function filterSessionsByStorefront(sessions, mode, storefronts) {
+        if (storefronts.length === 0)
+            return sessions;
+
+        return sessions.filter(session => {
+            const storefront = session.game.play_storefront;
+            return mode === 'include' ? storefronts.indexOf(storefront) >= 0 : storefronts.indexOf(storefront) === -1;
         });
     }
 

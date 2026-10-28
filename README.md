@@ -4,6 +4,15 @@ A userscripts for HowLongToBeat with some QoL improvements
 ## Installation
 Go to the __Greasy Fork__ [link](https://greasyfork.org/es/scripts/583271-hltb) and click the __"Install this script"__ button.
 
+## V0.9.9 - 2026-10-28
+### Added
+- __Sessions summary__ section added to __Stats__ page.
+  - Applies __Type__, __Year__, __Platform__ and __Storefront__ filters to the new __Sessions Summary__ section.
+  - Adds __Sessions__, __Hours by Month__, __Hours by Week Day__ and __Hours by Platform__ summaries to __Sessions Summary__ section.
+- New columns added to __Title List__.
+  - Adds __Completion date__ column.
+  - Adds __Sessions count__ column.
+
 ## V0.9.8 - 2026-10-21
 ### Added
 - __Journal__ autoreloads after __Importing/Syncing__ data.
