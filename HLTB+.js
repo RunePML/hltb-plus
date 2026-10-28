@@ -1385,7 +1385,7 @@
     }
 
     function addExtraDataToSessions(sessions) {
-        const games = getPageProps()?.userStats.gameList;
+        const games = getPageProps()?.userStats?.gameList || [];
         return sessions.map(session => {
             const game = games.filter(game => game.id == session.game.link)[0];
             if (game) {
