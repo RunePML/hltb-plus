@@ -148,6 +148,10 @@
     }
 
     function onEditPage() {
+        waitForElement('#tool_community', communityStats => {
+            addGameUserStats(communityStats.parentElement);
+        }, 20);
+
         waitForElement('.in.back_secondary.shadow_box.mobile_hide', progressTimer => {
             customizeProgressTimer(progressTimer);
         }, 20);
@@ -270,6 +274,64 @@
                 }
             }, 100);
         });
+    }
+
+    function addGameUserStats(container) {
+        const refBox = container.querySelector('#tool_community + div');
+        const box = document.createElement('div');
+        box.id = ID_PREFIX + 'RA_stats';
+        box.classList.add('in', 'back_secondary', 'shadow_box');
+        container.insertBefore(box, refBox);
+
+        const title = document.createElement('h4');
+        title.classList.add('up0YlW_tool_header', 'back_clear', 'center');
+        title.innerText = 'User Stats';
+        box.appendChild(title);
+
+        const tabsRow = document.createElement('div');
+        tabsRow.id = ID_PREFIX + 'tabs_row';
+        tabsRow.classList.add();
+        tabsRow.style.display = 'flex';
+        tabsRow.style.gap = '8px';
+        box.appendChild(tabsRow);
+
+        const tabsContent = document.createElement('div');
+        tabsContent.id = ID_PREFIX + 'tabs_content';
+        tabsContent.classList.add();
+        tabsContent.style.display = 'flex';
+        tabsContent.style.flexDirection = 'column';
+        box.appendChild(tabsContent);
+
+        addGameSessionsStats(tabsRow, tabsContent);
+        addGameRAProgress(tabsRow, tabsContent);
+    }
+
+    function createTabsRowTab(active, id, label, title) {
+        const tab = document.createElement('button');
+        tab.type = 'button';
+        tab.classList.add('form_button', 'form_blue', active ? 'primary' : 'secondary');
+        tab.innerText = label;
+        tab.title = title;
+        tab.dataset.id = id;
+        tab.addEventListener('click', () => {
+            document.getElementById(ID_PREFIX + 'tabs_row').querySelectorAll('button').forEach(b => {
+                b.classList.remove('primary');
+                b.classList.add('secondary');
+            });
+            tab.classList.remove('secondary');
+            tab.classList.add('primary');
+        });
+        return tab;
+    }
+
+    function addGameSessionsStats(tabsRow, tabsContent) {
+        tabsRow.appendChild(createTabsRowTab(true, 'TAB_GAME_SESSIONS', 'Sessions', 'Game sessions'));
+        // TODO
+    }
+
+    async function addGameRAProgress(tabsRow, tabsContent) {
+        tabsRow.appendChild(createTabsRowTab(false, 'TAB_RA_PROGRESS', 'RA', 'RetroAchievements'));
+        // TODO
     }
 
     function customizeProgressTimer(progressTimer) {
