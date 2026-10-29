@@ -43,7 +43,13 @@
 
     let options = {
         journalEnabled: false,
+        retroAchievements: {
+            username: '',
+            apiKey: ''
+        }
     };
+
+    let raAPI = null;
 
     let notificationsContainer = null;
     let currentPage = [];
@@ -211,7 +217,9 @@
     function onOptionsPage() {
         waitForElement('.contain_out:nth-child(2) .contain_in', optionsContainer => {
             const optionsColumns = optionsContainer.querySelectorAll('.content_33');
-            createOptionsPanel(optionsColumns[optionsColumns.length - 1]);
+            const thirdColumn = optionsColumns[optionsColumns.length - 1];
+            addCustomHandles(thirdColumn.childNodes[0]);
+            createOptionsPanel(thirdColumn);
         });
     }
 
@@ -826,6 +834,73 @@
                     })
                 })
             }).then(() => onPush());
+        });
+    }
+
+    function addCustomHandles(handlesPanel) {
+        const testRALogin = async (username, apiKey) => {
+            if (username === '' || apiKey === '')
+                return;
+
+            raAPI = new RA_API(username, apiKey);
+            openSpinner();
+            const success = await raAPI.login();
+            closeSpinner();
+
+            showNotification(success ? 'Logged in successfully.' : 'Invalid username or API key.');
+        };
+
+        const saveButton = handlesPanel.querySelector('div.right');
+
+        const raFieldset = document.createElement('fieldset');
+        raFieldset.classList.add('spreadsheet');
+        raFieldset.style.padding = '10px';
+        handlesPanel.insertBefore(raFieldset, saveButton);
+
+        const title = document.createElement('h4');
+        title.innerHTML = 'RetroAchievements:&nbsp;';
+        raFieldset.appendChild(title);
+
+        const testLoginButton = document.createElement('button');
+        testLoginButton.type = 'button';
+        testLoginButton.classList.add('form_button', 'form_blue', 'secondary');
+        testLoginButton.style.padding = '0';
+        testLoginButton.innerText = 'Test credentials';
+        title.appendChild(testLoginButton);
+
+        const usernameInput = document.createElement('input');
+        usernameInput.classList.add('form_text', 'back_form');
+        usernameInput.placeholder = 'Username';
+        usernameInput.type = 'text';
+        usernameInput.name = 'profile_ra_username';
+        usernameInput.value = options.retroAchievements?.username || '';
+        raFieldset.appendChild(usernameInput);
+
+        const apiKeyInput = document.createElement('input');
+        apiKeyInput.classList.add('form_text', 'back_form');
+        apiKeyInput.placeholder = 'API Key';
+        apiKeyInput.type = 'password';
+        apiKeyInput.name = 'profile_ra_apikey';
+        apiKeyInput.value = options.retroAchievements?.apiKey || '';
+        raFieldset.appendChild(apiKeyInput);
+
+        const tipText = document.createElement('div');
+        tipText.classList.add('text_grey');
+        tipText.style.fontSize = '85%';
+        tipText.innerHTML = 'Track your RA game progress. API Key can be obtained <a href="https://retroachievements.org/settings?tab=applications" target="_blank" class="text_pink">here</a>.';
+        raFieldset.appendChild(tipText);
+
+        testLoginButton.addEventListener('click', () => testRALogin(usernameInput.value, apiKeyInput.value));
+
+        saveButton.addEventListener('click', async () => {
+            options.retroAchievements = {
+                username: usernameInput.value,
+                apiKey: apiKeyInput.value
+            };
+            saveOptions();
+            showNotification('HLTB+ options saved, reload to see the changes.', [
+                { label: 'Reload', action: () => { location.reload(); } }
+            ]);
         });
     }
 
@@ -1470,6 +1545,33 @@
         return num >= 10
             ? num.toString()
             : '0' + num.toString();
+    }
+
+    class RA_API {
+        API = 'https://retroachievements.org/API/';
+        loggedIn = false;
+        profile = null;
+
+        constructor(username, apiKey) {
+            this.username = username;
+            this.apiKey = apiKey;
+        }
+
+        async login() {
+            const url = new URL('API_GetUserProfile.php', this.API);
+            url.searchParams.set('u', this.username);
+            url.searchParams.set('y', this.apiKey);
+            const response = await fetch(url);
+
+            if (!response.ok) {
+                this.loggedIn = false;
+                return false;
+            }
+
+            this.profile = await response.json();
+            this.loggedIn = true;
+            return true;
+        }
     }
 
     class Game {
