@@ -303,7 +303,7 @@
         box.appendChild(tabsContent);
 
         addGameSessionsStats(tabsRow, tabsContent);
-        addGameRAProgress(tabsRow, tabsContent);
+        addGameProgress(tabsRow, tabsContent);
     }
 
     function createTabsRowTab(active, id, label, title) {
@@ -341,12 +341,19 @@
         const row = document.createElement('div');
         row.style.display = 'flex';
         row.style.flexDirection = 'row';
+        row.style.gap = '8px';
         row.style.justifyContent = 'space-between';
 
         const label = document.createElement('strong');
         label.innerText = title;
         row.appendChild(label);
-        row.appendChild(content);
+
+        if (typeof content === 'string') {
+            const text = document.createElement('span');
+            text.innerText = content;
+            row.appendChild(text);
+        } else
+            row.appendChild(content);
 
         return row;
     }
@@ -388,15 +395,36 @@
         wrapper.appendChild(createWrapperDataRow('Last', lastSession));
     }
 
-    async function addGameRAProgress(tabsRow, tabsContent) {
-        const tabId = 'TAB_RA_PROGRESS';
-        tabsRow.appendChild(createTabsRowTab(false, tabId, 'RA', 'RetroAchievements'));
+    function addGameProgress(tabsRow, tabsContent) {
+        const tabId = 'TAB_GAME_PROGRESS';
+        tabsRow.appendChild(createTabsRowTab(false, tabId, 'Progress', 'Game progress'));
         const wrapper = createTabsContentWrapper(false, tabId);
         tabsContent.appendChild(wrapper);
 
-        const test = document.createElement('p');
-        test.innerText = 'RA';
-        wrapper.appendChild(test);
+        addGameRAProgress(wrapper);
+    }
+
+    async function addGameRAProgress(wrapper) {
+        const username = options.retroAchievements.username;
+        const apiKey = options.retroAchievements.apiKey;
+        if (username === '' || apiKey === '') {
+            wrapper.appendChild(createWrapperDataRow('RA', 'Link your RetroAchievements account in Options >> Handles'));
+            return;
+        }
+
+        if (!raAPI)
+            raAPI = new RA_API(username, apiKey);
+
+        if (!raAPI.loggedIn && !await raAPI.login()) {
+            showNotification('RetroAchievements: Invalid username or API key.');
+            wrapper.appendChild(createWrapperDataRow('RA', 'Link your RetroAchievements account in Options >> Handles'));
+            return;
+        }
+
+        const raLinkButton = document.createElement('a');
+        raLinkButton.innerText = 'Link';
+        raLinkButton.style.cursor = 'pointer';
+        wrapper.appendChild(createWrapperDataRow('RetroAchievements', raLinkButton));
     }
 
     function customizeProgressTimer(progressTimer) {
