@@ -338,16 +338,35 @@
         return wrapper;
     }
 
-    function createWrapperDataRow(title, content) {
+    function createWrapperDataRow(title, content, helpText) {
         const row = document.createElement('div');
         row.style.display = 'flex';
         row.style.flexDirection = 'row';
         row.style.gap = '8px';
+        row.style.alignItems = 'center';
         row.style.justifyContent = 'space-between';
 
         const label = document.createElement('strong');
         label.innerText = title;
         row.appendChild(label);
+
+        if (helpText) {
+            const helpBox = document.createElement('span');
+            helpBox.classList.add('up0YlW_submit_info', 'global_padding_big', 'back_secondary', 'shadow_box');
+            helpBox.style.display = 'none';
+            helpBox.style.transform = 'translateY(40px)';
+            helpBox.innerText = helpText;
+
+            const helpBtn = document.createElement('div');
+            helpBtn.classList.add('help_icon', 'text_blue');
+            helpBtn.innerText = '?';
+            helpBtn.addEventListener('mouseover', () => { helpBox.style.display = 'block'; });
+            helpBtn.addEventListener('mouseleave', () => { helpBox.style.display = 'none'; });
+            helpBtn.addEventListener('click', () => { helpBox.style.display = helpBox.style.display === 'block' ? 'none' : 'block' });
+
+            row.appendChild(helpBtn);
+            row.appendChild(helpBox);
+        }
 
         if (typeof content === 'string') {
             const text = document.createElement('span');
@@ -422,22 +441,60 @@
             return;
         }
 
-        const raLinkButton = document.createElement('a');
-        raLinkButton.innerText = 'Link';
-        raLinkButton.style.cursor = 'pointer';
-        raLinkButton.addEventListener('click', () => {
+        const game = await findGame(getEditPageGameLink());
+        if (!game || !game.links.ra) {
+            const raLinkButton = document.createElement('a');
+            raLinkButton.innerText = 'Link';
+            raLinkButton.style.cursor = 'pointer';
+            raLinkButton.addEventListener('click', () => {
+                const gameIdInput = document.createElement('input');
+                gameIdInput.classList.add('form_text', 'back_form');
+                gameIdInput.placeholder = 'RA Game ID';
+                gameIdInput.style.flex = '1';
 
-            openModalDialog(
-                'RA_LINK_DIALOG',
-                'Link RetroAchievements game progress',
-                createWrapperDataRow('Game Id', 'Game Id input'),
-                () => {
-                    debugger; // TODO
-                },
-                null
-            );
-        });
-        wrapper.appendChild(createWrapperDataRow('RetroAchievements', raLinkButton));
+                openModalDialog(
+                    'RA_LINK_DIALOG',
+                    'Link RetroAchievements game progress',
+                    createWrapperDataRow(
+                        'Game ID',
+                        gameIdInput,
+                        "The ID is the number that appears at the end of the game's URL on RetroAchievements."
+                    ),
+                    async () => {
+                        if (gameIdInput.value === '')
+                            return;
+
+                        openSpinner();
+                        const raGame = await raAPI.getGame(gameIdInput.value);
+                        closeSpinner();
+
+                        if (Array.isArray(raGame) && raGame.length === 0) {
+                            showNotification('Game with Id ' + gameIdInput.value + ' not found');
+                            return;
+                        }
+
+                        const games = loadGames();
+                        const gameLink = getEditPageGameLink();
+                        let hltbGame = games.find(game => game.link === gameLink);
+                        if (!hltbGame) {
+                            hltbGame = createGameFromPageData(document);
+                            games.push(hltbGame);
+                        }
+                        hltbGame.links.ra = gameIdInput.value;
+                        saveGames(games);
+
+                        showNotification(raGame.Title + ' linked. Reload to see the changes.', [
+                            { label: 'Reload', action: () => { location.reload(); } }
+                        ]);
+                    },
+                    null
+                );
+            });
+            wrapper.appendChild(createWrapperDataRow('RetroAchievements', raLinkButton));
+        } else {
+            const raGame = await raAPI.getGame(game.links.ra);
+            // TODO: Obtain game progress
+        }
     }
 
     function customizeProgressTimer(progressTimer) {
@@ -534,8 +591,12 @@
         return Number.parseInt(document.querySelector('select[name="review.score"]')?.value || 0);
     }
 
-    function createGameFromPageData(doc, gameLink) {
+    function getEditPageGameLink() {
         const linkParts = window.location.href.split('/');
+        return linkParts[linkParts.length - 1].replace(/[^0-9]/g, '');
+    }
+
+    function createGameFromPageData(doc, gameLink) {
         const imageElement = doc.querySelector('#tool_community img');
         const imgParts = imageElement ? imageElement.src.split('/') : [];
         const title = doc.querySelector('input[name="title"]')
@@ -543,7 +604,7 @@
             : doc.querySelector('meta[property="og:title"]').content.split(' - ')[0];
         return new Game(
             title,
-            gameLink ? gameLink : linkParts[linkParts.length - 1].replace(/[^0-9]/g, ''),
+            gameLink ? gameLink : getEditPageGameLink(),
             imgParts.length > 0 ? imgParts[imgParts.length - 1].split('?')[0] : ''
         );
     }
@@ -796,7 +857,11 @@
 
         const closeBtn = document.createElement('button');
         closeBtn.innerText = 'X';
-        closeBtn.addEventListener('click', () => closeModalDialog());
+        closeBtn.addEventListener('click', () => {
+            if (cancelCb)
+                cancelCb();
+            closeModalDialog();
+        });
         header.appendChild(closeBtn);
 
         content.classList.add('content_100');
@@ -843,7 +908,9 @@
 
     function loadGames() {
         const gamesRaw = localStorage.getItem(ID_PREFIX + 'games');
-        return gamesRaw ? JSON.parse(gamesRaw) : [];
+        return gamesRaw
+            ? JSON.parse(gamesRaw).map(g => Object.assign(new Game(), g))
+            : [];
     }
 
     function saveGames(games) {
@@ -1840,6 +1907,18 @@
             this.loggedIn = true;
             return true;
         }
+
+        async getGame(gameId) {
+            const url = new URL('API_GetGame.php', this.API);
+            url.searchParams.set('y', this.apiKey);
+            url.searchParams.set('i', gameId);
+            const response = await fetch(url);
+
+            if (!response.ok)
+                return null;
+
+            return await response.json();
+        }
     }
 
     class Game {
@@ -1847,6 +1926,7 @@
             this.title = title;
             this.link = link;
             this.image = image;
+            this.links = { ra: null };
         }
     }
 
