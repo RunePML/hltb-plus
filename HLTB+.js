@@ -56,6 +56,7 @@
     let journalDialogContainer = null;
     let journalContainer = null;
     let spinnerContainer = null;
+    let modalDialogContainer = null;
 
     setTimeout(() => {
         console.log('HLTB+ is running');
@@ -424,6 +425,18 @@
         const raLinkButton = document.createElement('a');
         raLinkButton.innerText = 'Link';
         raLinkButton.style.cursor = 'pointer';
+        raLinkButton.addEventListener('click', () => {
+
+            openModalDialog(
+                'RA_LINK_DIALOG',
+                'Link RetroAchievements game progress',
+                createWrapperDataRow('Game Id', 'Game Id input'),
+                () => {
+                    debugger; // TODO
+                },
+                null
+            );
+        });
         wrapper.appendChild(createWrapperDataRow('RetroAchievements', raLinkButton));
     }
 
@@ -740,6 +753,92 @@
 
         spinnerContainer.remove();
         spinnerContainer = null;
+    }
+
+    function openModalDialog(id, title, content, okCb, cancelCb) {
+        if (modalDialogContainer)
+            return;
+
+        modalDialogContainer = document.createElement('div');
+        modalDialogContainer.id = id;
+
+        let style = 'position: fixed;';
+        style += 'width: 100%; height: 100vh;';
+        style += 'top: 0; left: 0;';
+        style += 'background: rgba(0, 0, 0, 0.5);';
+        style += 'display: flex; justify-content: center; align-items: center;';
+
+        modalDialogContainer.style = style;
+        modalDialogContainer.addEventListener('click', () => closeModalDialog());
+        document.body.appendChild(modalDialogContainer);
+
+        const dialogContent = document.createElement('div');
+        dialogContent.classList.add('content_50');
+        dialogContent.addEventListener('click', event => {
+            event.stopPropagation();
+        });
+        modalDialogContainer.appendChild(dialogContent);
+
+        const dialog = document.createElement('div');
+        dialog.classList.add('in', 'back_primary', 'shadow_box');
+        dialog.style.maxHeight = '90vh';
+        dialogContent.appendChild(dialog);
+
+        const header = document.createElement('h3');
+        header.classList.add('head_padding', 'back_orange', 'center');
+        header.style = 'display: flex; justify-content: space-between;';
+        dialog.appendChild(header);
+
+        const headerText = document.createElement('span');
+        headerText.innerText = title;
+        headerText.style.flex = '1';
+        header.appendChild(headerText);
+
+        const closeBtn = document.createElement('button');
+        closeBtn.innerText = 'X';
+        closeBtn.addEventListener('click', () => closeModalDialog());
+        header.appendChild(closeBtn);
+
+        content.classList.add('content_100');
+        dialog.appendChild(content);
+
+        const actions = document.createElement('div');
+        actions.classList.add('content_100');
+        actions.style.display = 'flex';
+        actions.style.flexDirection = 'row';
+        actions.style.gap = '8px';
+        actions.style.justifyContent = 'flex-end';
+        dialog.appendChild(actions);
+
+        const okBtn = document.createElement('button');
+        okBtn.type = 'button';
+        okBtn.classList.add('form_button', 'form_blue', 'primary');
+        okBtn.innerText = 'Ok';
+        okBtn.addEventListener('click', () => {
+            if (okCb)
+                okCb();
+            closeModalDialog();
+        });
+        actions.appendChild(okBtn);
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.classList.add('form_button', 'secondary');
+        cancelBtn.innerText = 'Cancel';
+        cancelBtn.addEventListener('click', () => {
+            if (cancelCb)
+                cancelCb();
+            closeModalDialog();
+        });
+        actions.appendChild(cancelBtn);
+    }
+
+    function closeModalDialog() {
+        if (!modalDialogContainer)
+            return;
+
+        modalDialogContainer.remove();
+        modalDialogContainer = null;
     }
 
     function loadGames() {
