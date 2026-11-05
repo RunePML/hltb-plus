@@ -320,18 +320,83 @@
             });
             tab.classList.remove('secondary');
             tab.classList.add('primary');
+
+            document.getElementById(ID_PREFIX + 'tabs_content').querySelectorAll('.wrapper').forEach(wrapper => {
+                wrapper.style.display = wrapper.id === id ? 'flex' : 'none';
+            });
         });
         return tab;
     }
 
-    function addGameSessionsStats(tabsRow, tabsContent) {
-        tabsRow.appendChild(createTabsRowTab(true, 'TAB_GAME_SESSIONS', 'Sessions', 'Game sessions'));
-        // TODO
+    function createTabsContentWrapper(active, id) {
+        const wrapper = document.createElement('div');
+        wrapper.id = id;
+        wrapper.classList.add('wrapper', 'in', 'back_primary', 'shadow_box');
+        wrapper.style.display = active ? 'flex' : 'none';
+        wrapper.style.flexDirection = 'column';
+        return wrapper;
+    }
+
+    function createWrapperDataRow(title, content) {
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.flexDirection = 'row';
+        row.style.justifyContent = 'space-between';
+
+        const label = document.createElement('strong');
+        label.innerText = title;
+        row.appendChild(label);
+        row.appendChild(content);
+
+        return row;
+    }
+
+    async function addGameSessionsStats(tabsRow, tabsContent) {
+        const tabId = 'TAB_GAME_SESSIONS';
+        tabsRow.appendChild(createTabsRowTab(true, tabId, 'Sessions', 'Game sessions'));
+        const wrapper = createTabsContentWrapper(true, tabId);
+        tabsContent.appendChild(wrapper);
+
+        const game = createGameFromPageData(document);
+        const sessions = (await loadSessions()).filter(session => session.game.link === game.link);
+
+        if (sessions.length === 0) {
+            const noSessionsMsg = document.createElement('p');
+            noSessionsMsg.innerText = 'There are no sessions logged for this game yet.';
+            wrapper.appendChild(noSessionsMsg);
+            return;
+        }
+
+        const sessionsCount = document.createElement('span');
+        sessionsCount.innerText = sessions.length;
+        wrapper.appendChild(createWrapperDataRow('Count', sessionsCount));
+
+        let totalTime = 0;
+        sessions.forEach(session => totalTime += session.duration);
+        const d = formatDuration(totalTime / 1000);
+        const sessionsDuration = document.createElement('span');
+        sessionsDuration.innerText = d.h + 'h ' + d.m + 'm ' + d.s + 's';
+        wrapper.appendChild(createWrapperDataRow('Duration', sessionsDuration));
+
+        const avgD = formatDuration((totalTime / sessions.length) / 1000);
+        const avgDuration = document.createElement('span');
+        avgDuration.innerText = avgD.h + 'h ' + avgD.m + 'm ' + avgD.s + 's';
+        wrapper.appendChild(createWrapperDataRow('Avg. duration', avgDuration));
+
+        const lastSession = document.createElement('span');
+        lastSession.innerText = formatDate(sessions[sessions.length - 1].date);
+        wrapper.appendChild(createWrapperDataRow('Last', lastSession));
     }
 
     async function addGameRAProgress(tabsRow, tabsContent) {
-        tabsRow.appendChild(createTabsRowTab(false, 'TAB_RA_PROGRESS', 'RA', 'RetroAchievements'));
-        // TODO
+        const tabId = 'TAB_RA_PROGRESS';
+        tabsRow.appendChild(createTabsRowTab(false, tabId, 'RA', 'RetroAchievements'));
+        const wrapper = createTabsContentWrapper(false, tabId);
+        tabsContent.appendChild(wrapper);
+
+        const test = document.createElement('p');
+        test.innerText = 'RA';
+        wrapper.appendChild(test);
     }
 
     function customizeProgressTimer(progressTimer) {
@@ -429,7 +494,7 @@
     }
 
     function createGameFromPageData(doc, gameLink) {
-        const linkParts = gameLink ? '' : window.location.href.split('/');
+        const linkParts = window.location.href.split('/');
         const imageElement = doc.querySelector('#tool_community img');
         const imgParts = imageElement ? imageElement.src.split('/') : [];
         const title = doc.querySelector('input[name="title"]')
@@ -437,7 +502,7 @@
             : doc.querySelector('meta[property="og:title"]').content.split(' - ')[0];
         return new Game(
             title,
-            gameLink ? gameLink : linkParts[linkParts.length - 1],
+            gameLink ? gameLink : linkParts[linkParts.length - 1].replace(/[^0-9]/g, ''),
             imgParts.length > 0 ? imgParts[imgParts.length - 1].split('?')[0] : ''
         );
     }
@@ -445,7 +510,7 @@
     function formatDuration(seconds) {
         const hours = Math.floor(seconds / 3600);
         const minutes = Math.floor((seconds % 3600) / 60);
-        return { h: hours, m: minutes, s: seconds % 60 };
+        return { h: hours, m: minutes, s: Math.floor(seconds % 60) };
     }
 
     function formatDate(date) {
@@ -1607,6 +1672,20 @@
         return num >= 10
             ? num.toString()
             : '0' + num.toString();
+    }
+
+    function compareString(a, b) {
+        const na = a.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^0-9a-z\s]/gi, '');
+        const nb = b.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^0-9a-z\s]/gi, '');
+        const naParts = na.split(' ');
+        let matches = 0;
+        for (let i = 0; i < naParts.length; i++) {
+            if (nb.indexOf(naParts[i]) !== -1)
+                matches++;
+        }
+        const matchPercent = (matches / naParts.length) * 100;
+        console.log(a, b, matchPercent);
+        return matchPercent;
     }
 
     class RA_API {

@@ -7,6 +7,8 @@ Go to the __Greasy Fork__ [link](https://greasyfork.org/es/scripts/583271-hltb) 
 ## V0.9.10 - 2026-??-??
 ### Added
 - New __RetroAchievements__ handle added to __Options__ page.
+- New __User Stats__ section added to __Game edit__ page.
+  - Adds __Sessions__ tab.
 
 ## V0.9.9 - 2026-10-28
 ### Added
