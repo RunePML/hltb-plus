@@ -492,8 +492,16 @@
             });
             wrapper.appendChild(createWrapperDataRow('RetroAchievements', raLinkButton));
         } else {
-            const raGame = await raAPI.getGame(game.links.ra);
-            // TODO: Obtain game progress
+            openSpinner();
+            const progress = await raAPI.getGameProgress(game.links.ra);
+            closeSpinner();
+
+            wrapper.appendChild(createWrapperDataRow('RA', 'Unlink button')); // TODO: Link to RA Game & Create unlink button
+            wrapper.appendChild(createWrapperDataRow('Progress', progress.UserCompletion + '(' + progress.UserCompletionHardcore + ' H)'));
+            wrapper.appendChild(createWrapperDataRow(
+                'Achievements',
+                progress.NumAwardedToUser + '(' + progress.NumAwardedToUserHardcore + ' H) of ' + progress.NumAchievements
+            ));
         }
     }
 
@@ -1912,6 +1920,19 @@
             const url = new URL('API_GetGame.php', this.API);
             url.searchParams.set('y', this.apiKey);
             url.searchParams.set('i', gameId);
+            const response = await fetch(url);
+
+            if (!response.ok)
+                return null;
+
+            return await response.json();
+        }
+
+        async getGameProgress(gameId) {
+            const url = new URL('API_GetGameInfoAndUserProgress.php', this.API);
+            url.searchParams.set('y', this.apiKey);
+            url.searchParams.set('u', this.username);
+            url.searchParams.set('g', gameId);
             const response = await fetch(url);
 
             if (!response.ok)
