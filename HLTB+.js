@@ -512,9 +512,9 @@
             const progress = await raAPI.getGameProgress(game.links.ra);
             closeSpinner();
 
-            const filler = document.createElement('div');
-            filler.style.flex = '1';
-            toolbar.appendChild(filler);
+            const spacer = document.createElement('div');
+            spacer.style.flex = '1';
+            toolbar.appendChild(spacer);
 
             const detailsBtn = document.createElement('img');
             detailsBtn.classList.add('FnTDZq_option_detail');
@@ -546,11 +546,48 @@
             });
             toolbar.appendChild(removeBtn);
 
-            wrapper.appendChild(createWrapperDataRow('Progress', progress.UserCompletion + '(' + progress.UserCompletionHardcore + ' H)'));
+            const mastered = progress.NumAchievements === progress.NumAwardedToUserHardcore;
+            const completed = progress.NumAchievements === progress.NumAwardedToUser;
+            const mastering = progress.NumAwardedToUserHardcore > 0;
+
+            const progressContainer = document.createElement('div');
+            progressContainer.style.display = 'flex';
+            progressContainer.style.flexDirection = 'row';
+            progressContainer.style.alignItems = 'center'
+            wrapper.appendChild(progressContainer);
+
+            const progressBar = document.createElement('div');
+            progressBar.style = 'flex: 1; display:flex; background: #09090b; height: 4px; border-top-left-radius: 4px; border-bottom-left-radius: 4px; overflow: hidden;';
+            progressContainer.appendChild(progressBar);
+
+            const bar = document.createElement('div');
+            let barStyle = 'height: 4px;';
+            barStyle += 'background: ' + (mastering ? 'linear-gradient(90deg, #f59e0b, gold)' : '#737373') + ';';
+            barStyle += 'width: ' + (mastering ? progress.UserCompletionHardcore : progress.UserCompletion) + ';';
+
+            bar.style = barStyle;
+            progressBar.appendChild(bar);
+
+            const progressIndicator = document.createElement('div');
+            progressIndicator.title = 'Unfinished';
+            let indicatorStyle = 'width: 20px; height: 20px; border-radius: 50%; background-color: #161616; border: solid 2px #2a2a2a;';
+            if (mastered) {
+                progressIndicator.title = 'Mastered';
+                indicatorStyle += 'border-color: gold; background: radial-gradient(ellipse, gold, transparent);';
+            } else if (completed) {
+                progressIndicator.title = 'Completed';
+                indicatorStyle += 'border-color: gold';
+            }
+            progressIndicator.style = indicatorStyle;
+            progressContainer.appendChild(progressIndicator);
+
             wrapper.appendChild(createWrapperDataRow(
-                'Achievements',
-                progress.NumAwardedToUser + '(' + progress.NumAwardedToUserHardcore + ' H) of ' + progress.NumAchievements
+                'Progress',
+                (mastering ? progress.NumAwardedToUserHardcore : progress.NumAwardedToUser) + ' of ' + progress.NumAchievements
             ));
+
+            const d = formatDuration(progress.UserTotalPlaytime);
+            wrapper.appendChild(createWrapperDataRow('Playtime', d.h + 'h ' + d.m + 'm'));
         }
     }
 
