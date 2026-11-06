@@ -43,13 +43,20 @@
 
     let options = {
         journalEnabled: false,
+        retroAchievements: {
+            username: '',
+            apiKey: ''
+        }
     };
+
+    let raAPI = null;
 
     let notificationsContainer = null;
     let currentPage = [];
     let journalDialogContainer = null;
     let journalContainer = null;
     let spinnerContainer = null;
+    let modalDialogContainer = null;
 
     setTimeout(() => {
         console.log('HLTB+ is running');
@@ -142,6 +149,10 @@
     }
 
     function onEditPage() {
+        waitForElement('#tool_community', communityStats => {
+            addGameUserStats(communityStats.parentElement);
+        }, 20);
+
         waitForElement('.in.back_secondary.shadow_box.mobile_hide', progressTimer => {
             customizeProgressTimer(progressTimer);
         }, 20);
@@ -211,7 +222,9 @@
     function onOptionsPage() {
         waitForElement('.contain_out:nth-child(2) .contain_in', optionsContainer => {
             const optionsColumns = optionsContainer.querySelectorAll('.content_33');
-            createOptionsPanel(optionsColumns[optionsColumns.length - 1]);
+            const thirdColumn = optionsColumns[optionsColumns.length - 1];
+            addCustomHandles(thirdColumn.childNodes[0]);
+            createOptionsPanel(thirdColumn);
         });
     }
 
@@ -262,6 +275,369 @@
                 }
             }, 100);
         });
+    }
+
+    function addGameUserStats(container) {
+        const refBox = container.querySelector('#tool_community + div');
+        const box = document.createElement('div');
+        box.id = ID_PREFIX + 'RA_stats';
+        box.classList.add('in', 'back_secondary', 'shadow_box');
+        container.insertBefore(box, refBox);
+
+        const title = document.createElement('h4');
+        title.classList.add('up0YlW_tool_header', 'back_clear', 'center');
+        title.innerText = 'User Stats';
+        box.appendChild(title);
+
+        const tabsRow = document.createElement('div');
+        tabsRow.id = ID_PREFIX + 'tabs_row';
+        tabsRow.classList.add();
+        tabsRow.style.display = 'flex';
+        tabsRow.style.gap = '8px';
+        box.appendChild(tabsRow);
+
+        const tabsContent = document.createElement('div');
+        tabsContent.id = ID_PREFIX + 'tabs_content';
+        tabsContent.classList.add();
+        tabsContent.style.display = 'flex';
+        tabsContent.style.flexDirection = 'column';
+        box.appendChild(tabsContent);
+
+        addGameSessionsStats(tabsRow, tabsContent);
+        addGameProgress(tabsRow, tabsContent);
+    }
+
+    function createTabsRowTab(active, id, label, title) {
+        const tab = document.createElement('button');
+        tab.type = 'button';
+        tab.classList.add('form_button', 'form_blue', active ? 'primary' : 'secondary');
+        tab.innerText = label;
+        tab.title = title;
+        tab.dataset.id = id;
+        tab.addEventListener('click', () => {
+            document.getElementById(ID_PREFIX + 'tabs_row').querySelectorAll('button').forEach(b => {
+                b.classList.remove('primary');
+                b.classList.add('secondary');
+            });
+            tab.classList.remove('secondary');
+            tab.classList.add('primary');
+
+            document.getElementById(ID_PREFIX + 'tabs_content').querySelectorAll('.wrapper').forEach(wrapper => {
+                wrapper.style.display = wrapper.id === id ? 'flex' : 'none';
+            });
+        });
+        return tab;
+    }
+
+    function createTabsContentWrapper(active, id) {
+        const wrapper = document.createElement('div');
+        wrapper.id = id;
+        wrapper.classList.add('wrapper', 'in', 'back_primary', 'shadow_box');
+        wrapper.style.display = active ? 'flex' : 'none';
+        wrapper.style.flexDirection = 'column';
+        return wrapper;
+    }
+
+    function createWrapperDataRow(title, content, helpText) {
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.flexDirection = 'row';
+        row.style.gap = '8px';
+        row.style.alignItems = 'center';
+        row.style.justifyContent = 'space-between';
+
+        const label = document.createElement('strong');
+        label.innerText = title;
+        row.appendChild(label);
+
+        if (helpText) {
+            const helpBox = document.createElement('span');
+            helpBox.classList.add('up0YlW_submit_info', 'global_padding_big', 'back_secondary', 'shadow_box');
+            helpBox.style.display = 'none';
+            helpBox.style.transform = 'translateY(40px)';
+            helpBox.innerText = helpText;
+
+            const helpBtn = document.createElement('div');
+            helpBtn.classList.add('help_icon', 'text_blue');
+            helpBtn.innerText = '?';
+            helpBtn.addEventListener('mouseover', () => { helpBox.style.display = 'block'; });
+            helpBtn.addEventListener('mouseleave', () => { helpBox.style.display = 'none'; });
+            helpBtn.addEventListener('click', () => { helpBox.style.display = helpBox.style.display === 'block' ? 'none' : 'block' });
+
+            row.appendChild(helpBtn);
+            row.appendChild(helpBox);
+        }
+
+        if (typeof content === 'string') {
+            const text = document.createElement('span');
+            text.innerText = content;
+            row.appendChild(text);
+        } else
+            row.appendChild(content);
+
+        return row;
+    }
+
+    async function addGameSessionsStats(tabsRow, tabsContent) {
+        const tabId = 'TAB_GAME_SESSIONS';
+        tabsRow.appendChild(createTabsRowTab(true, tabId, 'Sessions', 'Game sessions'));
+        const wrapper = createTabsContentWrapper(true, tabId);
+        tabsContent.appendChild(wrapper);
+
+        const game = createGameFromPageData(document);
+        const sessions = (await loadSessions()).filter(session => session.game.link === game.link);
+
+        if (sessions.length === 0) {
+            const noSessionsMsg = document.createElement('p');
+            noSessionsMsg.innerText = 'There are no sessions logged for this game yet.';
+            wrapper.appendChild(noSessionsMsg);
+            return;
+        }
+
+        const sessionsCount = document.createElement('span');
+        sessionsCount.innerText = sessions.length;
+        wrapper.appendChild(createWrapperDataRow('Count', sessionsCount));
+
+        let totalTime = 0;
+        sessions.forEach(session => totalTime += session.duration);
+        const d = formatDuration(totalTime / 1000);
+        const sessionsDuration = document.createElement('span');
+        sessionsDuration.innerText = d.h + 'h ' + d.m + 'm ' + d.s + 's';
+        wrapper.appendChild(createWrapperDataRow('Duration', sessionsDuration));
+
+        const avgD = formatDuration((totalTime / sessions.length) / 1000);
+        const avgDuration = document.createElement('span');
+        avgDuration.innerText = avgD.h + 'h ' + avgD.m + 'm ' + avgD.s + 's';
+        wrapper.appendChild(createWrapperDataRow('Avg. duration', avgDuration));
+
+        const lastSession = document.createElement('span');
+        lastSession.innerText = formatDate(sessions[sessions.length - 1].date);
+        wrapper.appendChild(createWrapperDataRow('Last', lastSession));
+    }
+
+    function addGameProgress(tabsRow, tabsContent) {
+        const tabId = 'TAB_GAME_PROGRESS';
+        tabsRow.appendChild(createTabsRowTab(false, tabId, 'Progress', 'Game progress'));
+        const wrapper = createTabsContentWrapper(false, tabId);
+        tabsContent.appendChild(wrapper);
+
+        addGameRAProgress(wrapper);
+    }
+
+    function openLinkRaDialog(raLink) {
+        const gameIdInput = document.createElement('input');
+        gameIdInput.classList.add('form_text', 'back_form');
+        gameIdInput.placeholder = 'RA Game ID';
+        gameIdInput.style.flex = '1';
+        gameIdInput.value = raLink;
+
+        openModalDialog(
+            'RA_LINK_DIALOG',
+            'Link RetroAchievements game progress',
+            createWrapperDataRow(
+                'Game ID',
+                gameIdInput,
+                "The ID is the number that appears at the end of the game's URL on RetroAchievements."
+            ),
+            [
+                {
+                    label: 'Ok',
+                    primary: true,
+                    action: async () => {
+                        closeModalDialog();
+
+                        if (gameIdInput.value === '')
+                            return;
+
+                        openSpinner();
+                        const raGame = await raAPI.getGame(gameIdInput.value);
+                        closeSpinner();
+
+                        if (Array.isArray(raGame) && raGame.length === 0) {
+                            showNotification('Game with Id ' + gameIdInput.value + ' not found');
+                            return;
+                        }
+
+                        const games = loadGames();
+                        const gameLink = getEditPageGameLink();
+                        let hltbGame = games.find(game => game.link === gameLink);
+                        if (!hltbGame) {
+                            hltbGame = createGameFromPageData(document);
+                            games.push(hltbGame);
+                        }
+                        hltbGame.links.ra = gameIdInput.value;
+                        saveGames(games);
+
+                        showNotification(raGame.Title + ' linked. Reload to see the changes.', [
+                            { label: 'Reload', action: () => { location.reload(); } }
+                        ]);
+                    }
+                },
+                { label: 'Cancel' }
+            ]
+        );
+    }
+
+    function openRaProgressDialog(progress) {
+        const content = document.createElement('div');
+        content.style.display = 'flex';
+        content.style.flexWrap = 'wrap';
+        content.style.gap = '4px';
+        content.style.justifyContent = 'center';
+        content.style.overflow = 'auto';
+        content.style.maxHeight = '80vh';
+
+        Object.keys(progress.Achievements).forEach(id => {
+            const unlocked = progress.Achievements[id].DateEarned !== undefined;
+            const badge = document.createElement('img');
+            badge.style.cursor = 'pointer';
+            badge.src = raAPI.getBadgeUrl(progress.Achievements[id], unlocked);
+            badge.title = progress.Achievements[id].Title + (unlocked ? '- Unlocked ' + progress.Achievements[id].DateEarned : '');
+            badge.addEventListener('click', () => window.open('https://retroachievements.org/achievement/' + id, '_blank'))
+            content.appendChild(badge);
+        });
+
+        openModalDialog(
+            'RA_PROGRESS_DIALOG',
+            progress.Title + ' Achievements',
+            content,
+            []
+        );
+    }
+
+    async function addGameRAProgress(wrapper) {
+        const username = options.retroAchievements.username;
+        const apiKey = options.retroAchievements.apiKey;
+        if (username === '' || apiKey === '') {
+            wrapper.appendChild(createWrapperDataRow('RA', 'Link your RetroAchievements account in Options >> Handles'));
+            return;
+        }
+
+        if (!raAPI)
+            raAPI = new RA_API(username, apiKey);
+
+        if (!raAPI.loggedIn && !await raAPI.login()) {
+            showNotification('RetroAchievements: Invalid username or API key.');
+            wrapper.appendChild(createWrapperDataRow('RA', 'Link your RetroAchievements account in Options >> Handles'));
+            return;
+        }
+
+        const toolbar = document.createElement('div');
+        toolbar.style.display = 'flex';
+        toolbar.style.gap = '8px';
+        toolbar.style.justifyContent = 'space-between';
+        toolbar.style.marginBottom = '8px';
+        wrapper.appendChild(toolbar);
+
+        const icon = document.createElement('img');
+        icon.src = 'https://api-docs.retroachievements.org/logo.webp';
+        icon.style.height = '23px';
+        toolbar.appendChild(icon);
+
+        const game = await findGame(getEditPageGameLink());
+        if (!game || !game.links.ra) {
+            const linkBtn = document.createElement('img');
+            linkBtn.src = 'https://howlongtobeat.com/img/icon_edit.png';
+            linkBtn.title = 'Link RetroAchievements game progress';
+            linkBtn.style.height = '23px';
+            linkBtn.addEventListener('click', () => openLinkRaDialog(null));
+            toolbar.appendChild(linkBtn);
+        } else {
+            openSpinner();
+            const progress = await raAPI.getGameProgress(game.links.ra);
+            closeSpinner();
+
+            icon.style.cursor = 'pointer';
+            icon.title = "Open game's page on RetroAchievements";
+            icon.addEventListener('click', () => window.open('https://retroachievements.org/game/' + game.links.ra, '_blank'));
+
+            const spacer = document.createElement('div');
+            spacer.style.flex = '1';
+            toolbar.appendChild(spacer);
+
+            const progressBtn = document.createElement('img');
+            progressBtn.classList.add('FnTDZq_option_detail');
+            progressBtn.src = 'https://howlongtobeat.com/img/icon_expand.png';
+            progressBtn.title = 'View Achievements progress';
+            progressBtn.style.height = '23px';
+            progressBtn.addEventListener('click', () => openRaProgressDialog(progress));
+            toolbar.appendChild(progressBtn);
+
+            const editBtn = document.createElement('img');
+            editBtn.src = 'https://howlongtobeat.com/img/icon_edit.png';
+            editBtn.title = 'Edit RetroAchievements link';
+            editBtn.style.height = '23px';
+            editBtn.addEventListener('click', () => openLinkRaDialog(game.links.ra));
+            toolbar.appendChild(editBtn);
+
+            const removeBtn = document.createElement('img');
+            removeBtn.src = 'https://howlongtobeat.com/img/icon_delete.png';
+            removeBtn.title = 'Delete RetroAchievements link';
+            removeBtn.style.height = '23px';
+            removeBtn.addEventListener('click', () => {
+                openModalDialog(
+                    'DELETE_RA_LINK_DIALOG',
+                    'Are you sure you want to unlink this game?',
+                    null,
+                    [
+                        {
+                            label: 'Ok', primary: true,
+                            action: () => {
+                                const games = loadGames();
+                                const gameToUnlink = games.find(g => g.link === game.link);
+                                gameToUnlink.links.ra = null;
+                                saveGames(games);
+                                location.reload();
+                            }
+                        },
+                        { label: 'cancel' }
+                    ]);
+            });
+            toolbar.appendChild(removeBtn);
+
+            const mastered = progress.NumAchievements === progress.NumAwardedToUserHardcore;
+            const completed = progress.NumAchievements === progress.NumAwardedToUser;
+            const mastering = progress.NumAwardedToUserHardcore > 0;
+
+            const progressContainer = document.createElement('div');
+            progressContainer.style.display = 'flex';
+            progressContainer.style.flexDirection = 'row';
+            progressContainer.style.alignItems = 'center'
+            wrapper.appendChild(progressContainer);
+
+            const progressBar = document.createElement('div');
+            progressBar.style = 'flex: 1; display:flex; background: #09090b; height: 4px; border-top-left-radius: 4px; border-bottom-left-radius: 4px; overflow: hidden;';
+            progressContainer.appendChild(progressBar);
+
+            const bar = document.createElement('div');
+            let barStyle = 'height: 4px;';
+            barStyle += 'background: ' + (mastering ? 'linear-gradient(90deg, #f59e0b, gold)' : '#737373') + ';';
+            barStyle += 'width: ' + (mastering ? progress.UserCompletionHardcore : progress.UserCompletion) + ';';
+
+            bar.style = barStyle;
+            progressBar.appendChild(bar);
+
+            const progressIndicator = document.createElement('div');
+            progressIndicator.title = 'Unfinished';
+            let indicatorStyle = 'width: 20px; height: 20px; border-radius: 50%; background-color: #161616; border: solid 2px #2a2a2a;';
+            if (mastered) {
+                progressIndicator.title = 'Mastered';
+                indicatorStyle += 'border-color: gold; background: radial-gradient(ellipse, gold, transparent);';
+            } else if (completed) {
+                progressIndicator.title = 'Completed';
+                indicatorStyle += 'border-color: gold';
+            }
+            progressIndicator.style = indicatorStyle;
+            progressContainer.appendChild(progressIndicator);
+
+            wrapper.appendChild(createWrapperDataRow(
+                'Progress',
+                (mastering ? progress.NumAwardedToUserHardcore : progress.NumAwardedToUser) + ' of ' + progress.NumAchievements
+            ));
+
+            const d = formatDuration(progress.UserTotalPlaytime);
+            wrapper.appendChild(createWrapperDataRow('Playtime', d.h + 'h ' + d.m + 'm'));
+        }
     }
 
     function customizeProgressTimer(progressTimer) {
@@ -358,8 +734,12 @@
         return Number.parseInt(document.querySelector('select[name="review.score"]')?.value || 0);
     }
 
+    function getEditPageGameLink() {
+        const linkParts = window.location.href.split('/');
+        return linkParts[linkParts.length - 1].replace(/[^0-9]/g, '');
+    }
+
     function createGameFromPageData(doc, gameLink) {
-        const linkParts = gameLink ? '' : window.location.href.split('/');
         const imageElement = doc.querySelector('#tool_community img');
         const imgParts = imageElement ? imageElement.src.split('/') : [];
         const title = doc.querySelector('input[name="title"]')
@@ -367,7 +747,7 @@
             : doc.querySelector('meta[property="og:title"]').content.split(' - ')[0];
         return new Game(
             title,
-            gameLink ? gameLink : linkParts[linkParts.length - 1],
+            gameLink ? gameLink : getEditPageGameLink(),
             imgParts.length > 0 ? imgParts[imgParts.length - 1].split('?')[0] : ''
         );
     }
@@ -375,7 +755,7 @@
     function formatDuration(seconds) {
         const hours = Math.floor(seconds / 3600);
         const minutes = Math.floor((seconds % 3600) / 60);
-        return { h: hours, m: minutes, s: seconds % 60 };
+        return { h: hours, m: minutes, s: Math.floor(seconds % 60) };
     }
 
     function formatDate(date) {
@@ -579,9 +959,96 @@
         spinnerContainer = null;
     }
 
+    function openModalDialog(id, title, content, actionButtons) {
+        if (modalDialogContainer)
+            return;
+
+        modalDialogContainer = document.createElement('div');
+        modalDialogContainer.id = id;
+
+        let style = 'position: fixed;';
+        style += 'width: 100%; height: 100vh;';
+        style += 'top: 0; left: 0;';
+        style += 'background: rgba(0, 0, 0, 0.5);';
+        style += 'display: flex; justify-content: center; align-items: center;';
+
+        modalDialogContainer.style = style;
+        modalDialogContainer.addEventListener('click', () => closeModalDialog());
+        document.body.appendChild(modalDialogContainer);
+
+        const dialogContent = document.createElement('div');
+        dialogContent.classList.add('content_50');
+        dialogContent.addEventListener('click', event => {
+            event.stopPropagation();
+        });
+        modalDialogContainer.appendChild(dialogContent);
+
+        const dialog = document.createElement('div');
+        dialog.classList.add('in', 'back_primary', 'shadow_box');
+        dialog.style.maxHeight = '90vh';
+        dialogContent.appendChild(dialog);
+
+        const header = document.createElement('h3');
+        header.classList.add('head_padding', 'back_orange', 'center');
+        header.style = 'display: flex; justify-content: space-between;';
+        dialog.appendChild(header);
+
+        const headerText = document.createElement('span');
+        headerText.innerText = title;
+        headerText.style.flex = '1';
+        header.appendChild(headerText);
+
+        const closeBtn = document.createElement('button');
+        closeBtn.innerText = 'X';
+        closeBtn.addEventListener('click', () => closeModalDialog());
+        header.appendChild(closeBtn);
+
+        if (content) {
+            content.classList.add('content_100');
+            dialog.appendChild(content);
+        }
+
+        const actions = document.createElement('div');
+        actions.classList.add('content_100');
+        actions.style.display = 'flex';
+        actions.style.flexDirection = 'row';
+        actions.style.gap = '8px';
+        actions.style.justifyContent = 'flex-end';
+        dialog.appendChild(actions);
+
+        actionButtons.forEach(ac => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+
+            if (ac.primary)
+                btn.classList.add('form_button', 'form_blue', 'primary');
+            else
+                btn.classList.add('form_button', 'secondary');
+
+            btn.innerText = ac.label;
+            btn.addEventListener('click', () => {
+                if (ac.action)
+                    ac.action();
+                else
+                    closeModalDialog();
+            });
+            actions.appendChild(btn);
+        });
+    }
+
+    function closeModalDialog() {
+        if (!modalDialogContainer)
+            return;
+
+        modalDialogContainer.remove();
+        modalDialogContainer = null;
+    }
+
     function loadGames() {
         const gamesRaw = localStorage.getItem(ID_PREFIX + 'games');
-        return gamesRaw ? JSON.parse(gamesRaw) : [];
+        return gamesRaw
+            ? JSON.parse(gamesRaw).map(g => Object.assign(new Game(), g))
+            : [];
     }
 
     function saveGames(games) {
@@ -826,6 +1293,73 @@
                     })
                 })
             }).then(() => onPush());
+        });
+    }
+
+    function addCustomHandles(handlesPanel) {
+        const testRALogin = async (username, apiKey) => {
+            if (username === '' || apiKey === '')
+                return;
+
+            raAPI = new RA_API(username, apiKey);
+            openSpinner();
+            const success = await raAPI.login();
+            closeSpinner();
+
+            showNotification(success ? 'Logged in successfully.' : 'Invalid username or API key.');
+        };
+
+        const saveButton = handlesPanel.querySelector('div.right');
+
+        const raFieldset = document.createElement('fieldset');
+        raFieldset.classList.add('spreadsheet');
+        raFieldset.style.padding = '10px';
+        handlesPanel.insertBefore(raFieldset, saveButton);
+
+        const title = document.createElement('h4');
+        title.innerHTML = 'RetroAchievements:&nbsp;';
+        raFieldset.appendChild(title);
+
+        const testLoginButton = document.createElement('button');
+        testLoginButton.type = 'button';
+        testLoginButton.classList.add('form_button', 'form_blue', 'secondary');
+        testLoginButton.style.padding = '0';
+        testLoginButton.innerText = 'Test credentials';
+        title.appendChild(testLoginButton);
+
+        const usernameInput = document.createElement('input');
+        usernameInput.classList.add('form_text', 'back_form');
+        usernameInput.placeholder = 'Username';
+        usernameInput.type = 'text';
+        usernameInput.name = 'profile_ra_username';
+        usernameInput.value = options.retroAchievements?.username || '';
+        raFieldset.appendChild(usernameInput);
+
+        const apiKeyInput = document.createElement('input');
+        apiKeyInput.classList.add('form_text', 'back_form');
+        apiKeyInput.placeholder = 'API Key';
+        apiKeyInput.type = 'password';
+        apiKeyInput.name = 'profile_ra_apikey';
+        apiKeyInput.value = options.retroAchievements?.apiKey || '';
+        raFieldset.appendChild(apiKeyInput);
+
+        const tipText = document.createElement('div');
+        tipText.classList.add('text_grey');
+        tipText.style.fontSize = '85%';
+        tipText.innerHTML = 'Track your RA game progress. API Key can be obtained <a href="https://retroachievements.org/settings?tab=applications" target="_blank" class="text_pink">here</a>.';
+        raFieldset.appendChild(tipText);
+
+        testLoginButton.addEventListener('click', () => testRALogin(usernameInput.value, apiKeyInput.value));
+
+        saveButton.addEventListener('click', async () => {
+            options.retroAchievements = {
+                username: usernameInput.value,
+                apiKey: apiKeyInput.value
+            };
+            saveOptions();
+            showNotification('HLTB+ options saved, reload to see the changes.', [
+                { label: 'Reload', action: () => { location.reload(); } }
+            ]);
         });
     }
 
@@ -1472,11 +2006,84 @@
             : '0' + num.toString();
     }
 
+    function compareString(a, b) {
+        const na = a.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^0-9a-z\s]/gi, '');
+        const nb = b.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^0-9a-z\s]/gi, '');
+        const naParts = na.split(' ');
+        let matches = 0;
+        for (let i = 0; i < naParts.length; i++) {
+            if (nb.indexOf(naParts[i]) !== -1)
+                matches++;
+        }
+        const matchPercent = (matches / naParts.length) * 100;
+        console.log(a, b, matchPercent);
+        return matchPercent;
+    }
+
+    class RA_API {
+        API = 'https://retroachievements.org/API/';
+        loggedIn = false;
+        profile = null;
+
+        constructor(username, apiKey) {
+            this.username = username;
+            this.apiKey = apiKey;
+        }
+
+        async login() {
+            const url = new URL('API_GetUserProfile.php', this.API);
+            url.searchParams.set('u', this.username);
+            url.searchParams.set('y', this.apiKey);
+            const response = await fetch(url);
+
+            if (!response.ok) {
+                this.loggedIn = false;
+                return false;
+            }
+
+            this.profile = await response.json();
+            this.loggedIn = true;
+            return true;
+        }
+
+        async getGame(gameId) {
+            const url = new URL('API_GetGame.php', this.API);
+            url.searchParams.set('y', this.apiKey);
+            url.searchParams.set('i', gameId);
+            const response = await fetch(url);
+
+            if (!response.ok)
+                return null;
+
+            return await response.json();
+        }
+
+        async getGameProgress(gameId) {
+            const url = new URL('API_GetGameInfoAndUserProgress.php', this.API);
+            url.searchParams.set('y', this.apiKey);
+            url.searchParams.set('u', this.username);
+            url.searchParams.set('g', gameId);
+            url.searchParams.set('a', 1);
+            const response = await fetch(url);
+
+            if (!response.ok)
+                return null;
+
+            return await response.json();
+        }
+
+        getBadgeUrl(achievement, unlocked) {
+            const badgeName = achievement.BadgeName + (unlocked ? '' : '_lock');
+            return 'https://media.retroachievements.org/Badge/' + badgeName + '.png';
+        }
+    }
+
     class Game {
         constructor(title, link, image) {
             this.title = title;
             this.link = link;
             this.image = image;
+            this.links = { ra: null };
         }
     }
 
