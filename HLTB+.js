@@ -479,7 +479,30 @@
     }
 
     function openRaProgressDialog(progress) {
-        // TODO
+        const content = document.createElement('div');
+        content.style.display = 'flex';
+        content.style.flexWrap = 'wrap';
+        content.style.gap = '4px';
+        content.style.justifyContent = 'center';
+        content.style.overflow = 'auto';
+        content.style.maxHeight = '80vh';
+
+        Object.keys(progress.Achievements).forEach(id => {
+            const unlocked = progress.Achievements[id].DateEarned !== undefined;
+            const badge = document.createElement('img');
+            badge.style.cursor = 'pointer';
+            badge.src = raAPI.getBadgeUrl(progress.Achievements[id], unlocked);
+            badge.title = progress.Achievements[id].Title + (unlocked ? '- Unlocked ' + progress.Achievements[id].DateEarned : '');
+            badge.addEventListener('click', () => window.open('https://retroachievements.org/achievement/' + id, '_blank'))
+            content.appendChild(badge);
+        });
+
+        openModalDialog(
+            'RA_PROGRESS_DIALOG',
+            progress.Title + ' Achievements',
+            content,
+            []
+        );
     }
 
     async function addGameRAProgress(wrapper) {
@@ -523,6 +546,10 @@
             openSpinner();
             const progress = await raAPI.getGameProgress(game.links.ra);
             closeSpinner();
+
+            icon.style.cursor = 'pointer';
+            icon.title = "Open game's page on RetroAchievements";
+            icon.addEventListener('click', () => window.open('https://retroachievements.org/game/' + game.links.ra, '_blank'));
 
             const spacer = document.createElement('div');
             spacer.style.flex = '1';
@@ -973,11 +1000,7 @@
 
         const closeBtn = document.createElement('button');
         closeBtn.innerText = 'X';
-        closeBtn.addEventListener('click', () => {
-            if (cancelCb)
-                cancelCb();
-            closeModalDialog();
-        });
+        closeBtn.addEventListener('click', () => closeModalDialog());
         header.appendChild(closeBtn);
 
         if (content) {
