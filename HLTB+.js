@@ -424,6 +424,52 @@
         addGameRAProgress(wrapper);
     }
 
+    function openLinkRaDialog(raLink) {
+        const gameIdInput = document.createElement('input');
+        gameIdInput.classList.add('form_text', 'back_form');
+        gameIdInput.placeholder = 'RA Game ID';
+        gameIdInput.style.flex = '1';
+        gameIdInput.value = raLink;
+
+        openModalDialog(
+            'RA_LINK_DIALOG',
+            'Link RetroAchievements game progress',
+            createWrapperDataRow(
+                'Game ID',
+                gameIdInput,
+                "The ID is the number that appears at the end of the game's URL on RetroAchievements."
+            ),
+            async () => {
+                if (gameIdInput.value === '')
+                    return;
+
+                openSpinner();
+                const raGame = await raAPI.getGame(gameIdInput.value);
+                closeSpinner();
+
+                if (Array.isArray(raGame) && raGame.length === 0) {
+                    showNotification('Game with Id ' + gameIdInput.value + ' not found');
+                    return;
+                }
+
+                const games = loadGames();
+                const gameLink = getEditPageGameLink();
+                let hltbGame = games.find(game => game.link === gameLink);
+                if (!hltbGame) {
+                    hltbGame = createGameFromPageData(document);
+                    games.push(hltbGame);
+                }
+                hltbGame.links.ra = gameIdInput.value;
+                saveGames(games);
+
+                showNotification(raGame.Title + ' linked. Reload to see the changes.', [
+                    { label: 'Reload', action: () => { location.reload(); } }
+                ]);
+            },
+            null
+        );
+    }
+
     async function addGameRAProgress(wrapper) {
         const username = options.retroAchievements.username;
         const apiKey = options.retroAchievements.apiKey;
@@ -441,62 +487,65 @@
             return;
         }
 
+        const toolbar = document.createElement('div');
+        toolbar.style.display = 'flex';
+        toolbar.style.gap = '8px';
+        toolbar.style.justifyContent = 'space-between';
+        toolbar.style.marginBottom = '8px';
+        wrapper.appendChild(toolbar);
+
+        const icon = document.createElement('img');
+        icon.src = 'https://api-docs.retroachievements.org/logo.webp';
+        icon.style.height = '23px';
+        toolbar.appendChild(icon);
+
         const game = await findGame(getEditPageGameLink());
         if (!game || !game.links.ra) {
-            const raLinkButton = document.createElement('a');
-            raLinkButton.innerText = 'Link';
-            raLinkButton.style.cursor = 'pointer';
-            raLinkButton.addEventListener('click', () => {
-                const gameIdInput = document.createElement('input');
-                gameIdInput.classList.add('form_text', 'back_form');
-                gameIdInput.placeholder = 'RA Game ID';
-                gameIdInput.style.flex = '1';
-
-                openModalDialog(
-                    'RA_LINK_DIALOG',
-                    'Link RetroAchievements game progress',
-                    createWrapperDataRow(
-                        'Game ID',
-                        gameIdInput,
-                        "The ID is the number that appears at the end of the game's URL on RetroAchievements."
-                    ),
-                    async () => {
-                        if (gameIdInput.value === '')
-                            return;
-
-                        openSpinner();
-                        const raGame = await raAPI.getGame(gameIdInput.value);
-                        closeSpinner();
-
-                        if (Array.isArray(raGame) && raGame.length === 0) {
-                            showNotification('Game with Id ' + gameIdInput.value + ' not found');
-                            return;
-                        }
-
-                        const games = loadGames();
-                        const gameLink = getEditPageGameLink();
-                        let hltbGame = games.find(game => game.link === gameLink);
-                        if (!hltbGame) {
-                            hltbGame = createGameFromPageData(document);
-                            games.push(hltbGame);
-                        }
-                        hltbGame.links.ra = gameIdInput.value;
-                        saveGames(games);
-
-                        showNotification(raGame.Title + ' linked. Reload to see the changes.', [
-                            { label: 'Reload', action: () => { location.reload(); } }
-                        ]);
-                    },
-                    null
-                );
-            });
-            wrapper.appendChild(createWrapperDataRow('RetroAchievements', raLinkButton));
+            const linkBtn = document.createElement('img');
+            linkBtn.src = 'https://howlongtobeat.com/img/icon_edit.png';
+            linkBtn.title = 'Link RetroAchievements game progress';
+            linkBtn.style.height = '23px';
+            linkBtn.addEventListener('click', () => openLinkRaDialog(null));
+            toolbar.appendChild(linkBtn);
         } else {
             openSpinner();
             const progress = await raAPI.getGameProgress(game.links.ra);
             closeSpinner();
 
-            wrapper.appendChild(createWrapperDataRow('RA', 'Unlink button')); // TODO: Link to RA Game & Create unlink button
+            const filler = document.createElement('div');
+            filler.style.flex = '1';
+            toolbar.appendChild(filler);
+
+            const detailsBtn = document.createElement('img');
+            detailsBtn.classList.add('FnTDZq_option_detail');
+            detailsBtn.src = 'https://howlongtobeat.com/img/icon_expand.png';
+            detailsBtn.title = 'View game details in RetroAchievements';
+            detailsBtn.style.height = '23px';
+            detailsBtn.addEventListener('click', () => window.open('https://retroachievements.org/game/' + game.links.ra, '_blank'));
+            toolbar.appendChild(detailsBtn);
+
+            const editBtn = document.createElement('img');
+            editBtn.src = 'https://howlongtobeat.com/img/icon_edit.png';
+            editBtn.title = 'Edit RetroAchievements link';
+            editBtn.style.height = '23px';
+            editBtn.addEventListener('click', () => openLinkRaDialog(game.links.ra));
+            toolbar.appendChild(editBtn);
+
+            const removeBtn = document.createElement('img');
+            removeBtn.src = 'https://howlongtobeat.com/img/icon_delete.png';
+            removeBtn.title = 'Delete RetroAchievements link';
+            removeBtn.style.height = '23px';
+            removeBtn.addEventListener('click', () => {
+                openModalDialog('DELETE_RA_LINK_DIALOG', 'Are you sure you want to unlink this game?', null, () => {
+                    const games = loadGames();
+                    const gameToUnlink = games.find(g => g.link === game.link);
+                    gameToUnlink.links.ra = null;
+                    saveGames(games);
+                    location.reload();
+                }, null);
+            });
+            toolbar.appendChild(removeBtn);
+
             wrapper.appendChild(createWrapperDataRow('Progress', progress.UserCompletion + '(' + progress.UserCompletionHardcore + ' H)'));
             wrapper.appendChild(createWrapperDataRow(
                 'Achievements',
@@ -872,8 +921,10 @@
         });
         header.appendChild(closeBtn);
 
-        content.classList.add('content_100');
-        dialog.appendChild(content);
+        if (content) {
+            content.classList.add('content_100');
+            dialog.appendChild(content);
+        }
 
         const actions = document.createElement('div');
         actions.classList.add('content_100');
