@@ -485,16 +485,48 @@
         content.style.gap = '4px';
         content.style.justifyContent = 'center';
         content.style.overflow = 'auto';
-        content.style.maxHeight = '80vh';
+        content.style.maxHeight = '70vh';
 
-        Object.keys(progress.Achievements).forEach(id => {
-            const unlocked = progress.Achievements[id].DateEarned !== undefined;
+        let achievements = [];
+        Object.keys(progress.Achievements).forEach(id => achievements.push(progress.Achievements[id]));
+        achievements.sort((a, b) => a.DisplayOrder - b.DisplayOrder).forEach(achievement => {
+            const unlocked = achievement.DateEarned !== undefined;
+            const type = achievement.Type;
+
+            const badgeWrapper = document.createElement('div');
+            badgeWrapper.style.position = 'relative';
+            badgeWrapper.style.width = '64px';
+            badgeWrapper.style.height = '64px';
+            content.appendChild(badgeWrapper);
+
             const badge = document.createElement('img');
             badge.style.cursor = 'pointer';
-            badge.src = raAPI.getBadgeUrl(progress.Achievements[id], unlocked);
-            badge.title = progress.Achievements[id].Title + (unlocked ? '- Unlocked ' + progress.Achievements[id].DateEarned : '');
-            badge.addEventListener('click', () => window.open('https://retroachievements.org/achievement/' + id, '_blank'))
-            content.appendChild(badge);
+            badge.style.position = 'absolute';
+            badge.src = raAPI.getBadgeUrl(achievement, unlocked);
+            badge.title = achievement.Title + (unlocked ? '- Unlocked ' + achievement.DateEarned : '');
+            badge.addEventListener('click', () => window.open('https://retroachievements.org/achievement/' + achievement.ID, '_blank'))
+            badgeWrapper.appendChild(badge);
+
+            if (type) {
+                const typeIcon = document.createElement('b');
+                typeIcon.style = 'position: absolute; bottom: 0; right: 0; width: 20px; height: 20px; text-align: center; border-top-left-radius: 4px;';
+                typeIcon.classList.add('text_white');
+                switch (type) {
+                    case 'progression':
+                        typeIcon.innerText = 'V';
+                        typeIcon.classList.add('back_green');
+                        break;
+                    case 'missable':
+                        typeIcon.innerText = '!';
+                        typeIcon.classList.add('back_red');
+                        break;
+                    case 'win_condition':
+                        typeIcon.innerText = 'W';
+                        typeIcon.classList.add('back_yellow');
+                        break;
+                }
+                badgeWrapper.appendChild(typeIcon);
+            }
         });
 
         openModalDialog(
