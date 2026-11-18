@@ -512,7 +512,12 @@
             badge.style.position = 'absolute';
             badge.src = raAPI.getBadgeUrl(achievement, unlocked);
             badge.title = achievement.Title + (unlocked ? '- Unlocked ' + achievement.DateEarned : '');
-            badge.addEventListener('click', () => window.open('https://retroachievements.org/achievement/' + achievement.ID, '_blank'))
+            badge.addEventListener('click', () => {
+                showNotification(
+                    achievement.Title + ': ' + achievement.Description,
+                    [{ label: 'See on RA', action: () => window.open('https://retroachievements.org/achievement/' + achievement.ID, '_blank') }]
+                );
+            });
             badgeWrapper.appendChild(badge);
 
             if (type) {
