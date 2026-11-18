@@ -60,6 +60,7 @@
 
     setTimeout(() => {
         console.log('HLTB+ is running');
+        loadResources();
         loadOptions();
         initNavigationObserver();
         onNavigate();
@@ -85,6 +86,13 @@
                 }
             }
         }, 100);
+    }
+
+    function loadResources() {
+        const fa = document.createElement('script');
+        fa.src = 'https://kit.fontawesome.com/dadefcdbd4.js';
+        fa.crossOrigin = 'anonymous';
+        document.body.appendChild(fa);
     }
 
     function loadOptions() {
@@ -508,21 +516,18 @@
             badgeWrapper.appendChild(badge);
 
             if (type) {
-                const typeIcon = document.createElement('b');
-                typeIcon.style = 'position: absolute; bottom: 0; right: 0; width: 20px; height: 20px; text-align: center; border-top-left-radius: 4px;';
+                const typeIcon = document.createElement('i');
+                typeIcon.style = 'position: absolute; bottom: 0; right: 0; width: 20px; height: 20px; line-height: 20px; text-align: center; border-top-left-radius: 4px;';
                 typeIcon.classList.add('text_white');
                 switch (type) {
                     case 'progression':
-                        typeIcon.innerText = 'V';
-                        typeIcon.classList.add('back_green');
+                        typeIcon.classList.add('back_green', 'fa-regular', 'fa-circle-check');
                         break;
                     case 'missable':
-                        typeIcon.innerText = '!';
-                        typeIcon.classList.add('back_red');
+                        typeIcon.classList.add('back_red', 'fa-solid', 'fa-exclamation');
                         break;
                     case 'win_condition':
-                        typeIcon.innerText = 'W';
-                        typeIcon.classList.add('back_yellow');
+                        typeIcon.classList.add('back_yellow', 'fa-solid', 'fa-medal');
                         break;
                 }
                 badgeWrapper.appendChild(typeIcon);
