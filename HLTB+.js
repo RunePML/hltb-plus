@@ -386,6 +386,13 @@
         return row;
     }
 
+    function createDivider() {
+        const divider = document.createElement('div');
+        divider.classList.add('up0YlW_divider');
+        divider.style.marginBottom = '8px';
+        return divider;
+    }
+
     async function addGameSessionsStats(tabsRow, tabsContent) {
         const tabId = 'TAB_GAME_SESSIONS';
         tabsRow.appendChild(createTabsRowTab(true, tabId, 'Sessions', 'Game sessions'));
@@ -430,8 +437,133 @@
         tabsContent.appendChild(wrapper);
 
         addGameProgressTracker(wrapper);
-
         addGameRAProgress(wrapper);
+    }
+
+    function openEditCounterDialog(game, counter) {
+        if (!counter)
+            counter = new CounterTracker(game.link, '', 0, null, null, 1);
+
+        const content = document.createElement('div');
+
+        const nameInput = document.createElement('input');
+        nameInput.classList.add('fom_text', 'back_form');
+        nameInput.placeholder = 'name';
+        nameInput.style.flex = '1';
+        nameInput.value = counter.name;
+        content.appendChild(createWrapperDataRow(
+            'Counter name',
+            nameInput
+        ));
+
+        const valueInput = document.createElement('input');
+        valueInput.classList.add('fom_text', 'back_form');
+        valueInput.placeholder = 'value';
+        valueInput.style.flex = '1';
+        valueInput.type = 'number';
+        valueInput.value = counter.value;
+        content.appendChild(createWrapperDataRow(
+            'Initial value',
+            valueInput
+        ));
+
+        const minInput = document.createElement('input');
+        minInput.classList.add('fom_text', 'back_form');
+        minInput.placeholder = 'min';
+        minInput.style.flex = '1';
+        minInput.type = 'number';
+        minInput.value = counter.min;
+        content.appendChild(createWrapperDataRow(
+            'Min value',
+            minInput
+        ));
+
+        const maxInput = document.createElement('input');
+        maxInput.classList.add('fom_text', 'back_form');
+        maxInput.placeholder = 'value';
+        maxInput.style.flex = '1';
+        maxInput.type = 'max';
+        maxInput.value = counter.max;
+        content.appendChild(createWrapperDataRow(
+            'Max value',
+            maxInput
+        ));
+
+        const stepInput = document.createElement('input');
+        stepInput.classList.add('fom_text', 'back_form');
+        stepInput.placeholder = 'value';
+        stepInput.style.flex = '1';
+        stepInput.type = 'number';
+        stepInput.min = '1';
+        stepInput.value = counter.step;
+        content.appendChild(createWrapperDataRow(
+            'Increment',
+            stepInput
+        ));
+
+        openModalDialog(
+            'EDIT_COUNTER_DIALOG',
+            'Edit counter',
+            content,
+            [
+                {
+                    label: 'Ok',
+                    primary: true,
+                    action: () => {
+                        if (!nameInput.value) {
+                            showNotification('Counter name is required');
+                            return;
+                        }
+                        if (!valueInput.value) {
+                            showNotification('Set an initial value for the counter');
+                            return;
+                        }
+                        if (minInput.value) {
+                            if (Number.parseInt(minInput.value) > Number.parseInt(valueInput.value)) {
+                                showNotification('Min value can not be bigger than initial value');
+                                return;
+                            }
+                            if (maxInput.value && Number.parseInt(minInput.value) > Number.parseInt(maxInput.value)) {
+                                showNotification('Min value can not be bigger than max value');
+                                return;
+                            }
+                        }
+                        if (maxInput.value) {
+                            if (Number.parseInt(maxInput.value) < Number.parseInt(valueInput.value)) {
+                                showNotification('Max value can not be smaller than initial value');
+                                return;
+                            }
+                            if (minInput.value && Number.parseInt(maxInput.value) < Number.parseInt(minInput.value)) {
+                                showNotification('Max value can not be smaller than min value');
+                                return;
+                            }
+                        }
+                        if (stepInput.value < 1) {
+                            showNotification('Min value for Increment is 1');
+                            return;
+                        }
+
+                        const counters = loadCounterTrackers();
+                        let savedCounter = counters.find(c => c.id === counter.id);
+                        Object.assign(savedCounter ?? counter, {
+                            name: nameInput.value,
+                            value: valueInput.value,
+                            min: minInput.value,
+                            max: maxInput.value,
+                            step: stepInput.value
+                        });
+
+                        if (!savedCounter)
+                            counters.push(counter);
+
+                        saveCounterTrackers(counters);
+                        closeModalDialog();
+                        location.reload();
+                    }
+                },
+                { label: 'Cancel' }
+            ]
+        );
     }
 
     function openLinkRaDialog(raLink) {
@@ -587,7 +719,12 @@
         }
 
         const game = await findGame(getEditPageGameLink());
-        if (!game || !game.links.ra) {
+        if (!game)
+            return;
+
+        createOptionButton(null, 'fa-solid fa-bars-progress', 'Counter', () => openEditCounterDialog(game, null));
+
+        if (!game.links.ra) {
             createOptionButton('https://api-docs.retroachievements.org/logo.webp', null, 'RetroAchievements', () => {
                 const username = options.retroAchievements.username;
                 const apiKey = options.retroAchievements.apiKey;
@@ -598,6 +735,17 @@
                 openLinkRaDialog(null);
             });
         }
+
+        wrapper.appendChild(createDivider());
+
+        const countersTitle = document.createElement('h3');
+        countersTitle.innerText = 'Counters';
+        wrapper.appendChild(countersTitle);
+
+        const counters = loadCounterTrackers().filter(c => c.gameLink === game.link);
+        counters.forEach(counter => {
+            counter.render(wrapper);
+        });
     }
 
     async function addGameRAProgress(wrapper) {
@@ -623,10 +771,7 @@
             const progress = await raAPI.getGameProgress(game.links.ra);
             closeSpinner();
 
-            const divider = document.createElement('div');
-            divider.classList.add('up0YlW_divider');
-            divider.style.marginBottom = '8px'
-            wrapper.appendChild(divider);
+            wrapper.appendChild(createDivider());
 
             const toolbar = document.createElement('div');
             toolbar.style.display = 'flex';
@@ -1147,6 +1292,17 @@
 
     function saveGames(games) {
         localStorage.setItem(ID_PREFIX + 'games', JSON.stringify(games));
+    }
+
+    function loadCounterTrackers() {
+        const countersRaw = localStorage.getItem(ID_PREFIX + 'counter_trackers');
+        return countersRaw
+            ? JSON.parse(countersRaw).map(c => Object.assign(new CounterTracker(), c))
+            : [];
+    }
+
+    function saveCounterTrackers(counters) {
+        localStorage.setItem(ID_PREFIX + 'counter_trackers', JSON.stringify(counters));
     }
 
     async function findGame(gameLink) {
@@ -2169,6 +2325,102 @@
         getBadgeUrl(achievement, unlocked) {
             const badgeName = achievement.BadgeName + (unlocked ? '' : '_lock');
             return 'https://media.retroachievements.org/Badge/' + badgeName + '.png';
+        }
+    }
+
+    class CounterTracker {
+        constructor(gameLink, name, value, min, max, step) {
+            this.id = new Date().getTime();
+            this.gameLink = gameLink;
+            this.name = name;
+            this.value = value;
+            this.min = min;
+            this.max = max;
+            this.step = step;
+        }
+
+        render(container) {
+            const toolbar = document.createElement('div');
+            toolbar.style.display = 'flex';
+            toolbar.style.gap = '8px';
+            toolbar.style.justifyContent = 'space-between';
+            toolbar.style.marginBottom = '8px';
+            container.appendChild(toolbar);
+
+            const name = document.createElement('h3');
+            name.style.flex = '1';
+            name.innerText = this.name;
+            toolbar.appendChild(name);
+
+            const editBtn = document.createElement('img');
+            editBtn.src = 'https://howlongtobeat.com/img/icon_edit.png';
+            editBtn.title = 'Edit counter';
+            editBtn.style.height = '23px';
+            editBtn.addEventListener('click', () => openEditCounterDialog(null, this));
+            toolbar.appendChild(editBtn);
+
+            const removeBtn = document.createElement('img');
+            removeBtn.src = 'https://howlongtobeat.com/img/icon_delete.png';
+            removeBtn.title = 'Delete counter';
+            removeBtn.style.height = '23px';
+            removeBtn.addEventListener('click', () => {
+                openModalDialog(
+                    'DELETE_COUNTER_DIALOG',
+                    'Are you sure you want to delete this counter?',
+                    null,
+                    [
+                        {
+                            label: 'Ok', primary: true,
+                            action: () => {
+                                saveCounterTrackers(loadCounterTrackers().filter(c => c.id !== this.id));
+                                location.reload();
+                            }
+                        },
+                        { label: 'cancel' }
+                    ]);
+            });
+            toolbar.appendChild(removeBtn);
+
+            const counter = document.createElement('div');
+            counter.style = 'display: flex; flex-direction: row; gap: 8px; align-items: center; justify-content: space-between; margin-bottom: 8px;';
+            container.appendChild(counter);
+
+            const valueSpan = document.createElement('span');
+            this.updateValue(valueSpan);
+
+            const decBtn = document.createElement('button');
+            decBtn.type = 'button';
+            decBtn.classList.add('form_button', 'back_orange');
+            decBtn.innerHTML = '<i class="fa-solid fa-minus"></i>';
+            decBtn.addEventListener('click', () => this.decreaseValue(valueSpan));
+            counter.appendChild(decBtn);
+
+            counter.appendChild(valueSpan);
+
+            const incBtn = document.createElement('button');
+            incBtn.type = 'button';
+            incBtn.classList.add('form_button', 'back_green');
+            incBtn.innerHTML = '<i class="fa-solid fa-plus"></i>';
+            incBtn.addEventListener('click', () => this.increaseValue(valueSpan));
+            counter.appendChild(incBtn);
+        }
+
+        updateValue(element) {
+            element.innerText = this.value + (this.max ? (' of ' + this.max) : '');
+        }
+
+        decreaseValue(element) {
+            this.value = Number.parseInt(this.value) - Number.parseInt(this.step);
+            if (Number.parseInt(this.value) < Number.parseInt(this.min))
+                this.value = Number.parseInt(this.min);
+            this.updateValue(element);
+        }
+
+        increaseValue(element) {
+            this.value = Number.parseInt(this.value) + Number.parseInt(this.step);
+            if (Number.parseInt(this.value) > Number.parseInt(this.max))
+                this.value = Number.parseInt(this.max);
+            this.updateValue(element);
         }
     }
 
