@@ -940,7 +940,7 @@
         const notification = document.createElement('div');
         notification.id = ID_PREFIX + 'notification_' + (new Date().getTime());
         notification.classList.add('head_padding', 'back_pink');
-        let style = 'width: 80%; cursor: pointer; display: flex; gap: 16px; flex-wrap: wrap;';
+        let style = 'width: 80%; cursor: pointer; display: flex; gap: 8px 16px; flex-wrap: wrap; align-items: center;';
         notification.style = style;
         notification.addEventListener('click', () => {
             notification.remove();
@@ -953,7 +953,7 @@
 
         const text = document.createElement('h3');
         text.classList.add('center');
-        text.style = 'flex: 1';
+        text.style = 'flex: 1; min-width: 300px;';
         text.innerHTML = notificationText;
         notification.appendChild(text);
 
@@ -966,7 +966,7 @@
                 const actionBtn = document.createElement('button');
                 actionBtn.innerText = action.label;
                 actionBtn.classList.add('form_blue', 'secondary');
-                actionBtn.style = 'cursor: pointer;';
+                actionBtn.style = 'cursor: pointer; height: fit-content;';
                 actionBtn.addEventListener('click', () => action.action());
                 actionsContainer.appendChild(actionBtn);
             });
@@ -1041,6 +1041,8 @@
         header.appendChild(headerText);
 
         const closeBtn = document.createElement('button');
+        closeBtn.style.width = '30px';
+        closeBtn.style.height = '30px';
         closeBtn.innerText = 'X';
         closeBtn.addEventListener('click', () => closeModalDialog());
         header.appendChild(closeBtn);
