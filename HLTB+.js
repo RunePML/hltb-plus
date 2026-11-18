@@ -429,6 +429,8 @@
         const wrapper = createTabsContentWrapper(false, tabId);
         tabsContent.appendChild(wrapper);
 
+        addGameProgressTracker(wrapper);
+
         addGameRAProgress(wrapper);
     }
 
@@ -476,9 +478,8 @@
                         hltbGame.links.ra = gameIdInput.value;
                         saveGames(games);
 
-                        showNotification(raGame.Title + ' linked. Reload to see the changes.', [
-                            { label: 'Reload', action: () => { location.reload(); } }
-                        ]);
+                        showNotification(raGame.Title + ' linked.', []);
+                        location.reload();
                     }
                 },
                 { label: 'Cancel' }
@@ -547,6 +548,58 @@
         );
     }
 
+    async function addGameProgressTracker(wrapper) {
+        const optionsList = document.createElement('div');
+        optionsList.classList.add('in', 'back_secondary', 'shadow_box');
+        optionsList.style = 'position: absolute; top: 32px; left: 0; width: max-content; display: none; flex-direction: column; gap: 4px;';
+
+        const toggleOptionsList = () => { optionsList.style.display = optionsList.style.display === 'none' ? 'flex' : 'none'; };
+        const closeOptionsList = () => { optionsList.style.display = 'none'; };
+
+        const addBtn = document.createElement('button');
+        addBtn.type = 'button';
+        addBtn.classList.add('form_button', 'form_blue', 'primary');
+        addBtn.innerHTML = '<i class="fa-solid fa-plus"></i> Add progress tracker';
+        addBtn.style.position = 'relative';
+        addBtn.style.marginBottom = '8px';
+        addBtn.addEventListener('click', () => toggleOptionsList());
+        wrapper.appendChild(addBtn);
+        addBtn.appendChild(optionsList);
+
+        const createOptionButton = (iconImg, iconFA, label, action) => {
+            const optBtn = document.createElement('button');
+            optBtn.type = 'button';
+            optBtn.classList.add('form_button', 'form_blue', 'secondary');
+            optBtn.style = 'display: flex; align-items: center; gap: 8px;';
+            let html = '';
+            if (iconImg)
+                html += '<img src="' + iconImg + '" style="height: 23px;"> ';
+            if (iconFA)
+                html += '<i class="' + iconFA + '"></i> ';
+            html += label;
+            optBtn.innerHTML = html;
+            optBtn.addEventListener('click', event => {
+                event.stopPropagation();
+                action();
+                closeOptionsList();
+            });
+            optionsList.appendChild(optBtn);
+        }
+
+        const game = await findGame(getEditPageGameLink());
+        if (!game || !game.links.ra) {
+            createOptionButton('https://api-docs.retroachievements.org/logo.webp', null, 'RetroAchievements', () => {
+                const username = options.retroAchievements.username;
+                const apiKey = options.retroAchievements.apiKey;
+                if (username === '' || apiKey === '') {
+                    showNotification('You need to Link your RetroAchievements account in Options >> Handles before using this feature.');
+                    return;
+                }
+                openLinkRaDialog(null);
+            });
+        }
+    }
+
     async function addGameRAProgress(wrapper) {
         const username = options.retroAchievements.username;
         const apiKey = options.retroAchievements.apiKey;
@@ -564,34 +617,31 @@
             return;
         }
 
-        const toolbar = document.createElement('div');
-        toolbar.style.display = 'flex';
-        toolbar.style.gap = '8px';
-        toolbar.style.justifyContent = 'space-between';
-        toolbar.style.marginBottom = '8px';
-        wrapper.appendChild(toolbar);
-
-        const icon = document.createElement('img');
-        icon.src = 'https://api-docs.retroachievements.org/logo.webp';
-        icon.style.height = '23px';
-        toolbar.appendChild(icon);
-
         const game = await findGame(getEditPageGameLink());
-        if (!game || !game.links.ra) {
-            const linkBtn = document.createElement('img');
-            linkBtn.src = 'https://howlongtobeat.com/img/icon_edit.png';
-            linkBtn.title = 'Link RetroAchievements game progress';
-            linkBtn.style.height = '23px';
-            linkBtn.addEventListener('click', () => openLinkRaDialog(null));
-            toolbar.appendChild(linkBtn);
-        } else {
+        if (game && game.links.ra) {
             openSpinner();
             const progress = await raAPI.getGameProgress(game.links.ra);
             closeSpinner();
 
+            const divider = document.createElement('div');
+            divider.classList.add('up0YlW_divider');
+            divider.style.marginBottom = '8px'
+            wrapper.appendChild(divider);
+
+            const toolbar = document.createElement('div');
+            toolbar.style.display = 'flex';
+            toolbar.style.gap = '8px';
+            toolbar.style.justifyContent = 'space-between';
+            toolbar.style.marginBottom = '8px';
+            wrapper.appendChild(toolbar);
+
+            const icon = document.createElement('img');
+            icon.src = 'https://api-docs.retroachievements.org/logo.webp';
+            icon.style.height = '23px';
             icon.style.cursor = 'pointer';
             icon.title = "Open game's page on RetroAchievements";
             icon.addEventListener('click', () => window.open('https://retroachievements.org/game/' + game.links.ra, '_blank'));
+            toolbar.appendChild(icon);
 
             const spacer = document.createElement('div');
             spacer.style.flex = '1';
