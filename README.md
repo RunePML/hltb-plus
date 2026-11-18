@@ -4,13 +4,14 @@ A userscripts for HowLongToBeat with some QoL improvements
 ## Installation
 Go to the __Greasy Fork__ [link](https://greasyfork.org/es/scripts/583271-hltb) and click the __"Install this script"__ button.
 
-## V0.9.10b - 2026-11-06
+## V0.9.11b - 2026-11-06
 ### Added
 - New __RetroAchievements__ handle added to __Options__ page.
 - New __User Stats__ section added to __Game edit__ page.
   - Adds __Game sessions__ tab.
   - Adds __Game progress__ tab.
-    - RetroAchievements progress.
+    - Custom __Counters__.
+    - __RetroAchievements__ progress.
 
 ## V0.9.9 - 2026-10-28
 ### Added

@@ -430,8 +430,133 @@
         tabsContent.appendChild(wrapper);
 
         addGameProgressTracker(wrapper);
-
         addGameRAProgress(wrapper);
+    }
+
+    function openEditCounterDialog(game, counter) {
+        if (!counter)
+            counter = new CounterTracker(game.link, '', 0, null, null, 1);
+
+        const content = document.createElement('div');
+
+        const nameInput = document.createElement('input');
+        nameInput.classList.add('fom_text', 'back_form');
+        nameInput.placeholder = 'name';
+        nameInput.style.flex = '1';
+        nameInput.value = counter.name;
+        content.appendChild(createWrapperDataRow(
+            'Counter name',
+            nameInput
+        ));
+
+        const valueInput = document.createElement('input');
+        valueInput.classList.add('fom_text', 'back_form');
+        valueInput.placeholder = 'value';
+        valueInput.style.flex = '1';
+        valueInput.type = 'number';
+        valueInput.value = counter.value;
+        content.appendChild(createWrapperDataRow(
+            'Initial value',
+            valueInput
+        ));
+
+        const minInput = document.createElement('input');
+        minInput.classList.add('fom_text', 'back_form');
+        minInput.placeholder = 'min';
+        minInput.style.flex = '1';
+        minInput.type = 'number';
+        minInput.value = counter.min;
+        content.appendChild(createWrapperDataRow(
+            'Min value',
+            minInput
+        ));
+
+        const maxInput = document.createElement('input');
+        maxInput.classList.add('fom_text', 'back_form');
+        maxInput.placeholder = 'value';
+        maxInput.style.flex = '1';
+        maxInput.type = 'max';
+        maxInput.value = counter.max;
+        content.appendChild(createWrapperDataRow(
+            'Max value',
+            maxInput
+        ));
+
+        const stepInput = document.createElement('input');
+        stepInput.classList.add('fom_text', 'back_form');
+        stepInput.placeholder = 'value';
+        stepInput.style.flex = '1';
+        stepInput.type = 'number';
+        stepInput.min = '1';
+        stepInput.value = counter.step;
+        content.appendChild(createWrapperDataRow(
+            'Increment',
+            stepInput
+        ));
+
+        openModalDialog(
+            'EDIT_COUNTER_DIALOG',
+            'Edit counter',
+            content,
+            [
+                {
+                    label: 'Ok',
+                    primary: true,
+                    action: () => {
+                        if (!nameInput.value) {
+                            showNotification('Counter name is required');
+                            return;
+                        }
+                        if (!valueInput.value) {
+                            showNotification('Set an initial value for the counter');
+                            return;
+                        }
+                        if (minInput.value) {
+                            if (minInput.value > valueInput.value) {
+                                showNotification('Min value can not be bigger than initial value');
+                                return;
+                            }
+                            if (maxInput.value && minInput.value > maxInput.value) {
+                                showNotification('Min value can not be bigger than max value');
+                                return;
+                            }
+                        }
+                        if (maxInput.value) {
+                            if (maxInput.value < valueInput.value) {
+                                showNotification('Max value can not be smaller than initial value');
+                                return;
+                            }
+                            if (minInput.value && maxInput.value < minInput.value) {
+                                showNotification('Max value can not be smaller than min value');
+                                return;
+                            }
+                        }
+                        if (stepInput.value < 1) {
+                            showNotification('Min value for Increment is 1');
+                            return;
+                        }
+
+                        counter.name = nameInput.value;
+                        counter.value = valueInput.value;
+                        counter.min = minInput.value;
+                        counter.max = maxInput.value;
+                        counter.step = stepInput.value;
+
+                        const counters = loadCounterTrackers();
+                        const gameLink = getEditPageGameLink();
+                        let savedCounter = counters.find(c => c.id === counter.id);
+                        if (!savedCounter)
+                            counters.push(counter);
+
+                        saveCounterTrackers(counters);
+                        location.reload();
+
+                        closeModalDialog();
+                    }
+                },
+                { label: 'Cancel' }
+            ]
+        );
     }
 
     function openLinkRaDialog(raLink) {
@@ -587,7 +712,12 @@
         }
 
         const game = await findGame(getEditPageGameLink());
-        if (!game || !game.links.ra) {
+        if (!game)
+            return;
+
+        createOptionButton(null, 'fa-solid fa-bars-progress', 'Counter', () => openEditCounterDialog(game, null));
+
+        if (!game.links.ra) {
             createOptionButton('https://api-docs.retroachievements.org/logo.webp', null, 'RetroAchievements', () => {
                 const username = options.retroAchievements.username;
                 const apiKey = options.retroAchievements.apiKey;
@@ -1147,6 +1277,17 @@
 
     function saveGames(games) {
         localStorage.setItem(ID_PREFIX + 'games', JSON.stringify(games));
+    }
+
+    function loadCounterTrackers() {
+        const countersRaw = localStorage.getItem(ID_PREFIX + 'counter_trackers');
+        return countersRaw
+            ? JSON.parse(countersRaw).map(c => Object.assign(new CounterTracker(), c))
+            : [];
+    }
+
+    function saveCounterTrackers(counters) {
+        localStorage.setItem(ID_PREFIX + 'counter_trackers', JSON.stringify(counters));
     }
 
     async function findGame(gameLink) {
@@ -2169,6 +2310,22 @@
         getBadgeUrl(achievement, unlocked) {
             const badgeName = achievement.BadgeName + (unlocked ? '' : '_lock');
             return 'https://media.retroachievements.org/Badge/' + badgeName + '.png';
+        }
+    }
+
+    class CounterTracker {
+        constructor(gameLink, name, value, min, max, step) {
+            this.id = new Date().getTime();
+            this.gameLink = gameLink;
+            this.name = name;
+            this.value = value;
+            this.min = min;
+            this.max = max;
+            this.step = step;
+        }
+
+        render(container) {
+            debugger;
         }
     }
 
