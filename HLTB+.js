@@ -604,34 +604,122 @@
     }
 
     function openChecklistTrackerDialog(checklist) {
-        const content = document.createElement('div');
-        content.style = 'display: flex; flex-direction: column; gap: 4px; overflow: auto; maxHeight: 70vh;';
-
-        checklist.items.forEach(item => item.render(content));
-
-        const addItemBtn = document.createElement('button');
-        addItemBtn.type = 'button';
-        addItemBtn.classList.add('form_button', 'form_blue', 'primary');
-        addItemBtn.innerHTML = '<i class="fa-solid fa-plus"></i> Add item';
-        addItemBtn.addEventListener('click', () => openEditChecklistItemDialog(
-            null,
-            item => {
-                console.log(item);
-                debugger;
-            }
-        ));
-        content.appendChild(addItemBtn);
-
-        openModalDialog(
+        const open = () => openModalDialog(
             'CHECKLIST_TRACKER_DIALOG',
             checklist.name + ' Checklist',
             content,
             []
         );
+
+        const content = document.createElement('div');
+        content.style = 'display: flex; flex-direction: column; gap: 4px; overflow: auto; maxHeight: 70vh;';
+
+        checklist.items.forEach(item => content.appendChild(item.render()));
+
+        const addItemBtn = document.createElement('button');
+        addItemBtn.type = 'button';
+        addItemBtn.classList.add('form_button', 'form_blue', 'primary');
+        addItemBtn.innerHTML = '<i class="fa-solid fa-plus"></i> Add item';
+        addItemBtn.addEventListener('click', () => {
+            closeModalDialog();
+            openEditChecklistItemDialog(
+                null,
+                item => {
+                    open();
+
+                    checklist.items.push(item);
+                    saveChecklistTracker(checklist);
+
+                    const itemElement = item.render();
+                    content.insertBefore(itemElement, addItemBtn);
+                },
+                () => open()
+            )
+        });
+        content.appendChild(addItemBtn);
+
+        open();
     }
 
-    function openEditChecklistItemDialog(item, onEdit) {
-        
+    function openEditChecklistItemDialog(item, onEdit, onCancel) {
+        if (!item)
+            item = new ChecklistItem(false, '', '', '', false);
+
+        const content = document.createElement('div');
+
+        const iconInput = document.createElement('input');
+        iconInput.classList.add('fom_text', 'back_form');
+        iconInput.placeholder = 'icon url';
+        iconInput.style.flex = '1';
+        iconInput.value = item.icon;
+        content.appendChild(createWrapperDataRow(
+            'Icon',
+            iconInput
+        ));
+
+        const labelInput = document.createElement('input');
+        labelInput.classList.add('fom_text', 'back_form');
+        labelInput.placeholder = 'label';
+        labelInput.style.flex = '1';
+        labelInput.value = item.label;
+        content.appendChild(createWrapperDataRow(
+            'Label',
+            labelInput
+        ));
+
+        const descriptionInput = document.createElement('input');
+        descriptionInput.classList.add('fom_text', 'back_form');
+        descriptionInput.placeholder = 'description';
+        descriptionInput.style.flex = '1';
+        descriptionInput.value = item.description;
+        content.appendChild(createWrapperDataRow(
+            'Description',
+            descriptionInput
+        ));
+
+        const isSubitemInput = document.createElement('input');
+        isSubitemInput.classList.add('fom_text', 'back_form');
+        isSubitemInput.type = 'checkbox';
+        isSubitemInput.checked = item.isSubitem;
+
+        const cbWrapper = document.createElement('div');
+        cbWrapper.style = 'display: flex; flex: 1;';
+        cbWrapper.appendChild(isSubitemInput);
+
+        content.appendChild(createWrapperDataRow(
+            'Is sub-item',
+            cbWrapper,
+            'A sub-item will be indented to show that it is part of a group of items.'
+        ));
+
+        openModalDialog(
+            'EDIT_CHECKLIST_ITEM_DIALOG',
+            'Edit Item',
+            content,
+            [
+                {
+                    label: 'Ok',
+                    primary: true,
+                    action: () => {
+                        if (!labelInput.value) {
+                            showNotification('Item label is required');
+                            return;
+                        }
+
+                        Object.assign(item, {
+                            icon: iconInput.value,
+                            label: labelInput.value,
+                            description: descriptionInput.value,
+                            isSubitem: isSubitemInput.checked
+                        });
+
+                        closeModalDialog();
+                        onEdit(item);
+                    }
+                },
+                { label: 'Cancel', action: () => { closeModalDialog(); onCancel(); } }
+            ]
+        );
     }
 
     function openLinkRaDialog(raLink) {
@@ -1400,7 +1488,13 @@
     function loadChecklistTrackers() {
         const checklistsRaw = localStorage.getItem(ID_PREFIX + 'checklist_trackers');
         return checklistsRaw
-            ? JSON.parse(checklistsRaw).map(c => Object.assign(new ChecklistTracker(), c))
+            ? JSON.parse(checklistsRaw).map(c => {
+                const checklist = Object.assign(new ChecklistTracker(), c);
+                checklist.items = (c.items ?? []).map(item =>
+                    Object.assign(new ChecklistItem(), item)
+                );
+                return checklist;
+            })
             : [];
     }
 
@@ -2619,19 +2713,32 @@
 
     class ChecklistItem {
         constructor(checked, icon, label, description, isSubitem) {
-            this.checked = checked;
+            this._checkDate = null;
+            this._checked = checked;
             this.icon = icon;
             this.label = label;
             this.description = description;
             this.isSubitem = isSubitem;
         }
 
-        render(container) {
+        get checkDate() {
+            return this._checkDate;
+        }
+
+        get checked() {
+            return this._checked;
+        }
+
+        set checked(checked) {
+            this._checked = checked;
+            this._checkDate = checked ? new Date() : null;
+        }
+
+        render() {
             const id = new Date().getTime();
 
             const row = document.createElement('div');
             row.style = 'display: flex; flex-direction: row; gap: 4px; justify-content: space-between; align-items: center;';
-            container.appendChild(row);
 
             if (this.icon) {
                 const img = document.createElement('img');
@@ -2644,6 +2751,8 @@
             label.for = 'item_' + id;
             label.innerText = this.label;
             row.appendChild(label);
+
+            return row;
         }
     }
 
