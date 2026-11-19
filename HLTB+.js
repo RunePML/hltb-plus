@@ -678,7 +678,7 @@
         ));
 
         const isSubitemInput = document.createElement('input');
-        isSubitemInput.classList.add('fom_text', 'back_form');
+        isSubitemInput.classList.add('form_checkbox');
         isSubitemInput.type = 'checkbox';
         isSubitemInput.checked = item.isSubitem;
 
@@ -913,7 +913,7 @@
             checklistsTitle.innerHTML = '<i class="fa-solid fa-list-check"></i> Checklists';
             wrapper.appendChild(checklistsTitle);
 
-            checklists.forEach(checklist => checklist.renderSummary(wrapper));
+            checklists.forEach(checklist => checklist.render(wrapper));
         }
     }
 
@@ -2644,7 +2644,7 @@
             this.items = items;
         }
 
-        renderSummary(container) {
+        render(container) {
             const toolbar = document.createElement('div');
             toolbar.style.display = 'flex';
             toolbar.style.gap = '8px';
@@ -2705,10 +2705,6 @@
             margin.style.marginBottom = '12px';
             container.appendChild(margin);
         }
-
-        renderExpanded(container) {
-
-        }
     }
 
     class ChecklistItem {
@@ -2735,22 +2731,47 @@
         }
 
         render() {
-            const id = new Date().getTime();
-
             const row = document.createElement('div');
-            row.style = 'display: flex; flex-direction: row; gap: 4px; justify-content: space-between; align-items: center;';
+            row.style = 'display: flex; flex-direction: row; gap: 4px; align-items: center;';
+            if (this.isSubitem)
+                row.style.marginLeft = '20px';
+
+            const cbId = crypto.randomUUID();
+
+            const cbInput = document.createElement('input');
+            cbInput.id = cbId;
+            cbInput.classList.add('form_checkbox');
+            cbInput.type = 'checkbox';
+            cbInput.checked = this.checked;
+            row.appendChild(cbInput);
 
             if (this.icon) {
-                const img = document.createElement('img');
-                img.src = this.icon;
-                row.appendChild(img);
+                const iconWrapper = document.createElement('div');
+                iconWrapper.style = 'display: flex; flex-direction: row; justify-content: center; align-items:center; width: 64px; max-height: 64px; overflow: hidden;';
+                row.appendChild(iconWrapper);
+
+                const icon = document.createElement('img');
+                icon.src = this.icon;
+                icon.style.maxWidth = '64px';
+                iconWrapper.appendChild(icon);
             }
 
+            const textWrapper = document.createElement('div');
+            textWrapper.style = 'display: flex; flex-direction: column;';
+            row.appendChild(textWrapper);
+
             const label = document.createElement('label');
-            label.classList.add('up0YlW_list', 'back_form', 'shadow_border');
-            label.for = 'item_' + id;
-            label.innerText = this.label;
-            row.appendChild(label);
+            label.setAttribute('for', cbId);
+            label.innerHTML = '<strong>' + this.label + '</strong>';
+            textWrapper.appendChild(label);
+
+            if (this.description) {
+                const description = document.createElement('span');
+                description.innerText = this.description;
+                textWrapper.appendChild(description);
+            }
+
+            // TODO: Add item tools and events
 
             return row;
         }
