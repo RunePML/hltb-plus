@@ -603,6 +603,37 @@
         );
     }
 
+    function openChecklistTrackerDialog(checklist) {
+        const content = document.createElement('div');
+        content.style = 'display: flex; flex-direction: column; gap: 4px; overflow: auto; maxHeight: 70vh;';
+
+        checklist.items.forEach(item => item.render(content));
+
+        const addItemBtn = document.createElement('button');
+        addItemBtn.type = 'button';
+        addItemBtn.classList.add('form_button', 'form_blue', 'primary');
+        addItemBtn.innerHTML = '<i class="fa-solid fa-plus"></i> Add item';
+        addItemBtn.addEventListener('click', () => openEditChecklistItemDialog(
+            null,
+            item => {
+                console.log(item);
+                debugger;
+            }
+        ));
+        content.appendChild(addItemBtn);
+
+        openModalDialog(
+            'CHECKLIST_TRACKER_DIALOG',
+            checklist.name + ' Checklist',
+            content,
+            []
+        );
+    }
+
+    function openEditChecklistItemDialog(item, onEdit) {
+        
+    }
+
     function openLinkRaDialog(raLink) {
         const gameIdInput = document.createElement('input');
         gameIdInput.classList.add('form_text', 'back_form');
@@ -774,16 +805,28 @@
             });
         }
 
-        wrapper.appendChild(createDivider());
-
-        const countersTitle = document.createElement('h3');
-        countersTitle.innerText = 'Counters';
-        wrapper.appendChild(countersTitle);
 
         const counters = loadCounterTrackers().filter(c => c.gameLink === game.link);
-        counters.forEach(counter => {
-            counter.render(wrapper);
-        });
+        if (counters.length > 0) {
+            wrapper.appendChild(createDivider());
+
+            const countersTitle = document.createElement('h3');
+            countersTitle.innerHTML = '<i class="fa-solid fa-bars-progress"></i> Counters';
+            wrapper.appendChild(countersTitle);
+
+            counters.forEach(counter => counter.render(wrapper));
+        }
+
+        const checklists = loadChecklistTrackers().filter(c => c.gameLink === game.link);
+        if (checklists.length > 0) {
+            wrapper.appendChild(createDivider());
+
+            const checklistsTitle = document.createElement('h3');
+            checklistsTitle.innerHTML = '<i class="fa-solid fa-list-check"></i> Checklists';
+            wrapper.appendChild(checklistsTitle);
+
+            checklists.forEach(checklist => checklist.renderSummary(wrapper));
+        }
     }
 
     async function addGameRAProgress(wrapper) {
@@ -2418,26 +2461,26 @@
             toolbar.style.marginBottom = '8px';
             container.appendChild(toolbar);
 
-            const name = document.createElement('h3');
+            const name = document.createElement('h4');
             name.style.flex = '1';
             name.innerText = this.name;
             toolbar.appendChild(name);
 
             const editBtn = document.createElement('img');
             editBtn.src = 'https://howlongtobeat.com/img/icon_edit.png';
-            editBtn.title = 'Edit counter';
+            editBtn.title = 'Edit Counter';
             editBtn.style.height = '23px';
             editBtn.addEventListener('click', () => openEditCounterDialog(null, this));
             toolbar.appendChild(editBtn);
 
             const removeBtn = document.createElement('img');
             removeBtn.src = 'https://howlongtobeat.com/img/icon_delete.png';
-            removeBtn.title = 'Delete counter';
+            removeBtn.title = 'Delete Counter';
             removeBtn.style.height = '23px';
             removeBtn.addEventListener('click', () => {
                 openModalDialog(
                     'DELETE_COUNTER_DIALOG',
-                    'Are you sure you want to delete this counter?',
+                    'Are you sure you want to delete this Counter?',
                     null,
                     [
                         {
@@ -2447,7 +2490,7 @@
                                 location.reload();
                             }
                         },
-                        { label: 'cancel' }
+                        { label: 'Cancel' }
                     ]);
             });
             toolbar.appendChild(removeBtn);
@@ -2508,7 +2551,65 @@
         }
 
         renderSummary(container) {
+            const toolbar = document.createElement('div');
+            toolbar.style.display = 'flex';
+            toolbar.style.gap = '8px';
+            toolbar.style.justifyContent = 'space-between';
+            toolbar.style.marginBottom = '8px';
+            container.appendChild(toolbar);
 
+            const name = document.createElement('h4');
+            name.style.flex = '1';
+            name.innerText = this.name;
+            toolbar.appendChild(name);
+
+            const progressBtn = document.createElement('img');
+            progressBtn.classList.add('FnTDZq_option_detail');
+            progressBtn.src = 'https://howlongtobeat.com/img/icon_expand.png';
+            progressBtn.title = 'View Checklist';
+            progressBtn.style.height = '23px';
+            progressBtn.addEventListener('click', () => openChecklistTrackerDialog(this));
+            toolbar.appendChild(progressBtn);
+
+            const editBtn = document.createElement('img');
+            editBtn.src = 'https://howlongtobeat.com/img/icon_edit.png';
+            editBtn.title = 'Edit Checklist';
+            editBtn.style.height = '23px';
+            editBtn.addEventListener('click', () => openEditChecklistDialog(null, this));
+            toolbar.appendChild(editBtn);
+
+            const removeBtn = document.createElement('img');
+            removeBtn.src = 'https://howlongtobeat.com/img/icon_delete.png';
+            removeBtn.title = 'Delete Checkist';
+            removeBtn.style.height = '23px';
+            removeBtn.addEventListener('click', () => {
+                openModalDialog(
+                    'DELETE_CHECKLIST_DIALOG',
+                    'Are you sure you want to delete this Checklist?',
+                    null,
+                    [
+                        {
+                            label: 'Ok', primary: true,
+                            action: () => {
+                                saveChecklistTrackers(loadChecklistTrackers().filter(c => c.id !== this.id));
+                                location.reload();
+                            }
+                        },
+                        { label: 'Cancel' }
+                    ]);
+            });
+            toolbar.appendChild(removeBtn);
+
+            const checked = 0;
+            this.items.forEach(i => checked += i.checked ? 1 : 0);
+
+            const progress = document.createElement('span');
+            progress.innerText = checked + ' of ' + this.items.length;
+            container.appendChild(createWrapperDataRow('Progress', progress));
+
+            const margin = document.createElement('div');
+            margin.style.marginBottom = '12px';
+            container.appendChild(margin);
         }
 
         renderExpanded(container) {
@@ -2517,15 +2618,32 @@
     }
 
     class ChecklistItem {
-        constructor(checked, icon, label, subitem) {
+        constructor(checked, icon, label, description, isSubitem) {
             this.checked = checked;
             this.icon = icon;
             this.label = label;
-            this.subitem;
+            this.description = description;
+            this.isSubitem = isSubitem;
         }
 
         render(container) {
+            const id = new Date().getTime();
 
+            const row = document.createElement('div');
+            row.style = 'display: flex; flex-direction: row; gap: 4px; justify-content: space-between; align-items: center;';
+            container.appendChild(row);
+
+            if (this.icon) {
+                const img = document.createElement('img');
+                img.src = this.icon;
+                row.appendChild(img);
+            }
+
+            const label = document.createElement('label');
+            label.classList.add('up0YlW_list', 'back_form', 'shadow_border');
+            label.for = 'item_' + id;
+            label.innerText = this.label;
+            row.appendChild(label);
         }
     }
 
