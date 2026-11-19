@@ -503,7 +503,7 @@
 
         openModalDialog(
             'EDIT_COUNTER_DIALOG',
-            'Edit counter',
+            'Edit Counter',
             content,
             [
                 {
@@ -543,20 +543,57 @@
                             return;
                         }
 
-                        const counters = loadCounterTrackers();
-                        let savedCounter = counters.find(c => c.id === counter.id);
-                        Object.assign(savedCounter ?? counter, {
+                        Object.assign(counter, {
                             name: nameInput.value,
                             value: valueInput.value,
                             min: minInput.value,
                             max: maxInput.value,
                             step: stepInput.value
                         });
+                        saveCounterTracker(counter)
 
-                        if (!savedCounter)
-                            counters.push(counter);
+                        closeModalDialog();
+                        location.reload();
+                    }
+                },
+                { label: 'Cancel' }
+            ]
+        );
+    }
 
-                        saveCounterTrackers(counters);
+    function openEditChecklistDialog(game, checklist) {
+        if (!checklist)
+            checklist = new ChecklistTracker(game.link, '', []);
+
+        const content = document.createElement('div');
+
+        const nameInput = document.createElement('input');
+        nameInput.classList.add('fom_text', 'back_form');
+        nameInput.placeholder = 'name';
+        nameInput.style.flex = '1';
+        nameInput.value = checklist.name;
+        content.appendChild(createWrapperDataRow(
+            'Checklist name',
+            nameInput
+        ));
+
+        openModalDialog(
+            'EDIT_CHECKLIST_DIALOG',
+            'Edit Checklist',
+            content,
+            [
+                {
+                    label: 'Ok',
+                    primary: true,
+                    action: () => {
+                        if (!nameInput.value) {
+                            showNotification('Checklist name is required');
+                            return;
+                        }
+
+                        Object.assign(checklist, { name: nameInput.value });
+                        saveChecklistTracker(checklist);
+
                         closeModalDialog();
                         location.reload();
                     }
@@ -723,6 +760,7 @@
             return;
 
         createOptionButton(null, 'fa-solid fa-bars-progress', 'Counter', () => openEditCounterDialog(game, null));
+        createOptionButton(null, 'fa-solid fa-list-check', 'Checklist', () => openEditChecklistDialog(game, null));
 
         if (!game.links.ra) {
             createOptionButton('https://api-docs.retroachievements.org/logo.webp', null, 'RetroAchievements', () => {
@@ -1303,6 +1341,39 @@
 
     function saveCounterTrackers(counters) {
         localStorage.setItem(ID_PREFIX + 'counter_trackers', JSON.stringify(counters));
+    }
+
+    function saveCounterTracker(counter) {
+        const counters = loadCounterTrackers();
+        const savedCounter = counters.find(c => c.id === counter.id);
+        if (!savedCounter)
+            counters.push(counter);
+        else
+            Object.assign(savedCounter, counter);
+
+        saveCounterTrackers(counters);
+    }
+
+    function loadChecklistTrackers() {
+        const checklistsRaw = localStorage.getItem(ID_PREFIX + 'checklist_trackers');
+        return checklistsRaw
+            ? JSON.parse(checklistsRaw).map(c => Object.assign(new ChecklistTracker(), c))
+            : [];
+    }
+
+    function saveChecklistTrackers(checklists) {
+        localStorage.setItem(ID_PREFIX + 'checklist_trackers', JSON.stringify(checklists));
+    }
+
+    function saveChecklistTracker(checklist) {
+        const checklists = loadChecklistTrackers();
+        const savedChecklist = checklists.find(c => c.id === checklist.id);
+        if (!savedChecklist)
+            checklists.push(checklist);
+        else
+            Object.assign(savedChecklist, checklist);
+
+        saveChecklistTrackers(checklists);
     }
 
     async function findGame(gameLink) {
@@ -2414,6 +2485,8 @@
             if (Number.parseInt(this.value) < Number.parseInt(this.min))
                 this.value = Number.parseInt(this.min);
             this.updateValue(element);
+
+            saveCounterTracker(this);
         }
 
         increaseValue(element) {
@@ -2421,6 +2494,38 @@
             if (Number.parseInt(this.value) > Number.parseInt(this.max))
                 this.value = Number.parseInt(this.max);
             this.updateValue(element);
+
+            saveCounterTracker(this);
+        }
+    }
+
+    class ChecklistTracker {
+        constructor(gameLink, name, items) {
+            this.id = new Date().getTime();
+            this.gameLink = gameLink;
+            this.name = name;
+            this.items = items;
+        }
+
+        renderSummary(container) {
+
+        }
+
+        renderExpanded(container) {
+
+        }
+    }
+
+    class ChecklistItem {
+        constructor(checked, icon, label, subitem) {
+            this.checked = checked;
+            this.icon = icon;
+            this.label = label;
+            this.subitem;
+        }
+
+        render(container) {
+
         }
     }
 
